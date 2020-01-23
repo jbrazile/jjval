@@ -113,7 +113,7 @@ public class JJval {
       }
       if (withEverit) {
         try {
-          eSchema.validate(new org.json.JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)))));
+          eSchema.validate(new org.json.JSONObject(new String(Files.readAllBytes(Paths.get(file)))));
         } catch (ValidationException e) {
           System.out.println(e.toJSON());
         }
