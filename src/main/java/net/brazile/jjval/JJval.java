@@ -27,22 +27,27 @@
 package net.brazile.jjval;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.lang.invoke.MethodHandles;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import javax.json.Json;
 import javax.json.stream.JsonParser.Event;
 import javax.json.stream.JsonParser;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.leadpony.justify.api.JsonSchema;
 import org.leadpony.justify.api.JsonValidationService;
 import org.leadpony.justify.api.ProblemHandler;
 
 public class JJval {
+  public static final String VERSION = "v1.0.2";
+
   class PrintingProblemHandler implements ProblemHandler {
     public void handleProblems(List<org.leadpony.justify.api.Problem> problems) {
       for(org.leadpony.justify.api.Problem problem : problems) {
@@ -53,8 +58,11 @@ public class JJval {
 
   public static void usage(String msg) {
     System.out.println(String.format("%s\nusage: %s [-vj][-ve] -s [schema] file...", msg, "jjval"));
+    System.out.println(String.format("(version: %s)", VERSION));
     System.out.println("    -vj\t\tvalidate with justify");
     System.out.println("    -ve\t\tvalidate with everit");
+    System.out.println("    -pj\t\tpassthrough with justify (jakarta.json)");
+    System.out.println("    -pe\t\tpassthrough with everit (org.json)");
     System.out.println("    -s (schema)\tJSON schema for validation purposes");
     System.exit(-1);
   }
@@ -66,20 +74,24 @@ public class JJval {
 
   public void validate(String[] args) throws Exception {
 
-    String jsonSchema = null;;
-    boolean withJustify = false;
-    boolean withEverit = false;
-    List<String> files = new ArrayList<>();
+    String jsonSchema              = null;;
+    boolean validateJustify        = false;
+    boolean validateEverit         = false;
+    boolean passthroughJustify     = false;
+    boolean passthroughEverit      = false;
+    List<String> files             = new ArrayList<>();
     JsonValidationService jService = null;
-    JsonSchema jSchema = null;
-    Schema eSchema = null;
+    JsonSchema jSchema             = null;
+    Schema eSchema                 = null;
 
     // parse command line
     int state = 0;
     for (String arg: args) {
       switch(arg) {
-        case "-vj": withJustify=true; break;
-        case "-ve": withEverit=true; break;
+        case "-vj": validateJustify=true; break;
+        case "-ve": validateEverit=true; break;
+        case "-pj": passthroughJustify=true; break;
+        case "-pe": passthroughEverit=true; break;
         case "-s":  state = 1; break;
         default:
           if (state == 1) {
@@ -91,32 +103,44 @@ public class JJval {
       }
     }
     // validate command line arguments
-    if (!withJustify && !withEverit) { usage("At least one of -vj or -ve needs to be specified");}
-    if (jsonSchema == null || !(new File(jsonSchema)).canRead()) {usage("A readable schema file must be specified with -s");}
+    if (!validateJustify && !validateEverit && !passthroughJustify && !passthroughEverit) { usage("At least one of -vj, -ve, -pj, -pe must be specified");}
+    if ((validateJustify || validateEverit) && ((jsonSchema == null) || !(new File(jsonSchema)).canRead())) {usage("with -vj, -ve, a readable schema file must be specified with -s");}
     if (files.size() < 1) {usage("At least one file to validate must be specified");}
 
     // setup validator(s)
-    if (withJustify) {
+    if (validateJustify) {
       jService = JsonValidationService.newInstance();
       jSchema = jService.readSchema(Paths.get(jsonSchema));
     }
-    if (withEverit) {
+    if (validateEverit) {
       eSchema = SchemaLoader.load(new JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)))));
     }
 
-    // validate all given files
+    // process all given files
     PrintingProblemHandler handler = new PrintingProblemHandler();
     for (String file: files) {
-      if (withJustify) {
+      if (validateJustify) {
+        System.out.println(String.format("Validating '%s' with justify...", file));
         JsonParser jParser = jService.createParser(Paths.get(file), jSchema, handler);
         while(jParser.hasNext()) { Event jevent = jParser.next(); }
       }
-      if (withEverit) {
+      if (validateEverit) {
+        System.out.println(String.format("Validating '%s' with everit...", file));
         try {
           eSchema.validate(new org.json.JSONObject(new String(Files.readAllBytes(Paths.get(file)))));
         } catch (ValidationException e) {
           System.out.println(e.toJSON());
         }
+      }
+      if (passthroughJustify) {
+        System.out.println(String.format("NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
+        JsonParser parser = Json.createParser(new FileInputStream(file));
+        while(parser.hasNext()) { Event jevent = parser.next(); }
+      }
+      if (passthroughEverit) {
+        System.out.println(String.format("NOT validating (passthrough) '%s' with everit (org.json)...", file));
+        JSONTokener tokener = new JSONTokener(new FileInputStream(file));
+        while(tokener.more()) { tokener.next(); }
       }
     }
   }
