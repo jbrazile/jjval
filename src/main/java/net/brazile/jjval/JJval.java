@@ -46,12 +46,15 @@ import org.leadpony.justify.api.JsonValidationService;
 import org.leadpony.justify.api.ProblemHandler;
 
 public class JJval {
-  public static final String VERSION = "v1.0.2";
+  public static final String VERSION = "v1.0.3";
+  public boolean allCorrect          = true;
+  public boolean quietMode           = false;
 
   class PrintingProblemHandler implements ProblemHandler {
     public void handleProblems(List<org.leadpony.justify.api.Problem> problems) {
       for(org.leadpony.justify.api.Problem problem : problems) {
-        System.out.println(problem.toString());
+        allCorrect = false;
+        if (!quietMode) { System.out.println(problem.toString()); }
       }
     }
   }
@@ -64,16 +67,16 @@ public class JJval {
     System.out.println("    -pj\t\tpassthrough with justify (jakarta.json)");
     System.out.println("    -pe\t\tpassthrough with everit (org.json)");
     System.out.println("    -s (schema)\tJSON schema for validation purposes");
+    System.out.println("    -q\t\tquiet mode - no validation output, run only for exit code");
     System.exit(-1);
   }
 
   public static void main(String[] args) throws Exception {
     JJval jjval = new JJval();
-    jjval.validate(args);
+    System.exit(jjval.validate(args) ? 0 : -1);
   }
 
-  public void validate(String[] args) throws Exception {
-
+  public boolean validate(String[] args) throws Exception {
     String jsonSchema              = null;;
     boolean validateJustify        = false;
     boolean validateEverit         = false;
@@ -92,6 +95,7 @@ public class JJval {
         case "-ve": validateEverit=true; break;
         case "-pj": passthroughJustify=true; break;
         case "-pe": passthroughEverit=true; break;
+        case "-q":  quietMode=true; break;
         case "-s":  state = 1; break;
         default:
           if (state == 1) {
@@ -129,7 +133,8 @@ public class JJval {
         try {
           eSchema.validate(new org.json.JSONObject(new String(Files.readAllBytes(Paths.get(file)))));
         } catch (ValidationException e) {
-          System.out.println(e.toJSON());
+          allCorrect = false;
+          if (!quietMode) {System.out.println(e.toJSON());}
         }
       }
       if (passthroughJustify) {
@@ -143,6 +148,14 @@ public class JJval {
         while(tokener.more()) { tokener.next(); }
       }
     }
+    if (validateJustify || validateEverit) {
+      if (allCorrect) {
+        System.out.println("No validation issues encountered.");
+      } else {
+        System.out.println("At least one validation issue encountered.");
+      }
+    }
+    return allCorrect;
   }
 }
 
