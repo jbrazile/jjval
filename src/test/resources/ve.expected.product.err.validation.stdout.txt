@@ -1,0 +1,21 @@
+{
+  "schemaLocation": "#",
+  "pointerToViolation": "#",
+  "causingExceptions": [
+    {
+      "schemaLocation": "#",
+      "pointerToViolation": "#",
+      "causingExceptions": [],
+      "keyword": "required",
+      "message": "required key [productId] not found"
+    },
+    {
+      "schemaLocation": "#",
+      "pointerToViolation": "#",
+      "causingExceptions": [],
+      "keyword": "additionalProperties",
+      "message": "extraneous key [Id] is not permitted"
+    }
+  ],
+  "message": "2 schema violations found"
+}

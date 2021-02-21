@@ -21,9 +21,10 @@
       <version>2.0.0</version>
     </dependency>
     <dependency>
-      <groupId>org.everit.json</groupId>
+      <!-- <groupId>org.everit.json</groupId> -->
+      <groupId>com.github.everit-org.json-schema</groupId>
       <artifactId>org.everit.json.schema</artifactId>
-      <version>1.5.1</version>
+      <version>1.12.2</version>
     </dependency>
     <dependency>
       <groupId>org.glassfish</groupId>
@@ -33,10 +34,487 @@
       <scope>runtime</scope>
     </dependency>
   </dependencies>
+  <repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+  </repositories>
 
   <build>
     <finalName>jjval</finalName>
     <plugins>
+      <plugin>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution><id>cli-test</id><phase>integration-test</phase>
+          <configuration>
+            <target>
+              <echo>Testing ${project.build.finalName}...</echo>
+
+              <echo>Case vj product.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.product.ok.stdout.txt" error="${project.build.directory}/test-classes/vj.product.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s product.schema.json product.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!--<fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.ok.stdout.txt vj.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.ok.stdout.txt vj.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.ok.stderr.txt vj.product.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.ok.stderr.txt vj.product.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case vj product.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.product.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/vj.product.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s product.schema.json product.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.err.syntax.stdout.txt vj.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.err.syntax.stdout.txt vj.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.err.syntax.stderr.txt vj.product.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.err.syntax.stderr.txt vj.product.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case vj product.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.product.err.validation.stdout.txt" error="${project.build.directory}/test-classes/vj.product.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s product.schema.json product.err.validation.json"/>
+              </exec>
+              <echo>Expected: 2</echo>
+              <!-- <fail message="ERROR: expected=2 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="2"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.err.validation.stdout.txt vj.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.err.validation.stdout.txt vj.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.product.err.validation.stderr.txt vj.product.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.product.err.validation.stderr.txt vj.product.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case vj products.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.products.ok.stdout.txt" error="${project.build.directory}/test-classes/vj.products.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s products.schema.json products.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.ok.stdout.txt vj.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.ok.stdout.txt vj.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.ok.stderr.txt vj.products.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.ok.stderr.txt vj.products.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case vj products.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.products.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/vj.products.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s products.schema.json products.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.err.syntax.stdout.txt vj.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.err.syntax.stdout.txt vj.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.err.syntax.stderr.txt vj.products.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.err.syntax.stderr.txt vj.products.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case vj products.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vj.products.err.validation.stdout.txt" error="${project.build.directory}/test-classes/vj.products.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -vj -s products.schema.json products.err.validation.json"/>
+              </exec>
+              <echo>Expected: 2</echo>
+              <!-- <fail message="ERROR: expected=2 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="2"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.err.validation.stdout.txt vj.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.err.validation.stdout.txt vj.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vj.expected.products.err.validation.stderr.txt vj.products.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vj.expected.products.err.validation.stderr.txt vj.products.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve product.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.product.ok.stdout.txt" error="${project.build.directory}/test-classes/ve.product.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s product.schema.json product.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.ok.stdout.txt ve.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.ok.stdout.txt ve.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.ok.stderr.txt ve.product.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.ok.stderr.txt ve.product.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve product.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.product.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/ve.product.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s product.schema.json product.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.err.syntax.stdout.txt ve.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.err.syntax.stdout.txt ve.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.err.syntax.stderr.txt ve.product.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.err.syntax.stderr.txt ve.product.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve product.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.product.err.validation.stdout.txt" error="${project.build.directory}/test-classes/ve.product.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s product.schema.json product.err.validation.json"/>
+              </exec>
+              <echo>Expected: 2</echo>
+              <!-- <fail message="ERROR: expected=2 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="2"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.err.validation.stdout.txt ve.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.err.validation.stdout.txt ve.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.product.err.validation.stderr.txt ve.product.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.product.err.validation.stderr.txt ve.product.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve products.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.products.ok.stdout.txt" error="${project.build.directory}/test-classes/ve.products.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s products.schema.json products.ok.json"/>
+              </exec>
+              <echo>Expected: 2</echo>
+              <!-- <fail message="ERROR: expected=2 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="2"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.ok.stdout.txt ve.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.ok.stdout.txt ve.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.ok.stderr.txt ve.products.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.ok.stderr.txt ve.products.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve products.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.products.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/ve.products.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s products.schema.json products.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.err.syntax.stdout.txt ve.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.err.syntax.stdout.txt ve.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.err.syntax.stderr.txt ve.products.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.err.syntax.stderr.txt ve.products.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case ve products.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/ve.products.err.validation.stdout.txt" error="${project.build.directory}/test-classes/ve.products.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -ve -s products.schema.json products.err.validation.json"/>
+              </exec>
+              <echo>Expected: 2</echo>
+              <!-- <fail message="ERROR: expected=2 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="2"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.err.validation.stdout.txt ve.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.err.validation.stdout.txt ve.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s ve.expected.products.err.validation.stderr.txt ve.products.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="ve.expected.products.err.validation.stderr.txt ve.products.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj product.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.product.ok.stdout.txt" error="${project.build.directory}/test-classes/pj.product.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s product.schema.json product.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.ok.stdout.txt pj.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.ok.stdout.txt pj.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.ok.stderr.txt pj.product.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.ok.stderr.txt pj.product.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj product.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.product.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/pj.product.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s product.schema.json product.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.err.syntax.stdout.txt pj.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.err.syntax.stdout.txt pj.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.err.syntax.stderr.txt pj.product.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.err.syntax.stderr.txt pj.product.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj product.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.product.err.validation.stdout.txt" error="${project.build.directory}/test-classes/pj.product.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s product.schema.json product.err.validation.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail> -->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.err.validation.stdout.txt pj.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.err.validation.stdout.txt pj.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.product.err.validation.stderr.txt pj.product.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.product.err.validation.stderr.txt pj.product.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj products.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.products.ok.stdout.txt" error="${project.build.directory}/test-classes/pj.products.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s products.schema.json products.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.ok.stdout.txt pj.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.ok.stdout.txt pj.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.ok.stderr.txt pj.products.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.ok.stderr.txt pj.products.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj products.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.products.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/pj.products.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s products.schema.json products.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.err.syntax.stdout.txt pj.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.err.syntax.stdout.txt pj.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.err.syntax.stderr.txt pj.products.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.err.syntax.stderr.txt pj.products.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case pj products.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pj.products.err.validation.stdout.txt" error="${project.build.directory}/test-classes/pj.products.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pj -s products.schema.json products.err.validation.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.err.validation.stdout.txt pj.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.err.validation.stdout.txt pj.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pj.expected.products.err.validation.stderr.txt pj.products.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pj.expected.products.err.validation.stderr.txt pj.products.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe product.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.product.ok.stdout.txt" error="${project.build.directory}/test-classes/pe.product.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s product.schema.json product.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.ok.stdout.txt pe.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.ok.stdout.txt pe.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.ok.stderr.txt pe.product.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.ok.stderr.txt pe.product.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe product.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.product.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/pe.product.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s product.schema.json product.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.err.syntax.stdout.txt pe.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.err.syntax.stdout.txt pe.product.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.err.syntax.stderr.txt pe.product.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.err.syntax.stderr.txt pe.product.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe product.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.product.err.validation.stdout.txt" error="${project.build.directory}/test-classes/pe.product.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s product.schema.json product.err.validation.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.err.validation.stdout.txt pe.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.err.validation.stdout.txt pe.product.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.product.err.validation.stderr.txt pe.product.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.product.err.validation.stderr.txt pe.product.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe products.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.products.ok.stdout.txt" error="${project.build.directory}/test-classes/pe.products.ok.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s products.schema.json products.ok.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.ok.stdout.txt pe.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.ok.stdout.txt pe.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.ok.stderr.txt pe.products.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.ok.stderr.txt pe.products.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe products.err.syntax</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.products.err.syntax.stdout.txt" error="${project.build.directory}/test-classes/pe.products.err.syntax.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s products.schema.json products.err.syntax.json"/>
+              </exec>
+              <echo>Expected: 1</echo>
+              <!-- <fail message="ERROR: expected=1 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="1"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.err.syntax.stdout.txt pe.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.err.syntax.stdout.txt pe.products.err.syntax.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.err.syntax.stderr.txt pe.products.err.syntax.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.err.syntax.stderr.txt pe.products.err.syntax.stderr.txt"/>
+              </exec>
+
+              <echo>Case pe products.err.validation</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/pe.products.err.validation.stdout.txt" error="${project.build.directory}/test-classes/pe.products.err.validation.stderr.txt" resultproperty="jjval.retval">
+                <arg line="-jar ../${project.build.finalName}.jar -pe -s products.schema.json products.err.validation.json"/>
+              </exec>
+              <echo>Expected: 0</echo>
+              <!-- <fail message="ERROR: expected=0 observed=${jjval.retval}"><condition><not><equals arg1="${jjval.retval}" arg2="0"/></not></condition></fail>-->
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.err.validation.stdout.txt pe.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.err.validation.stdout.txt pe.products.err.validation.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s pe.expected.products.err.validation.stderr.txt pe.products.err.validation.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="pe.expected.products.err.validation.stderr.txt pe.products.err.validation.stderr.txt"/>
+              </exec>
+
+            </target>
+          </configuration>
+          <goals><goal>run</goal></goals>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>

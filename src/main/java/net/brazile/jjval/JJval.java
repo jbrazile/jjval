@@ -28,7 +28,10 @@ package net.brazile.jjval;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -39,17 +42,62 @@ import javax.json.stream.JsonParser;
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 import org.leadpony.justify.api.JsonSchema;
 import org.leadpony.justify.api.JsonValidationService;
 import org.leadpony.justify.api.ProblemHandler;
 
+/**
+ * Java-based JSON validator optionally using JSON-Schema.
+ */
 public class JJval {
-  public static final String VERSION = "v1.0.3";
-  public boolean allCorrect          = true;
-  public boolean quietMode           = false;
+  private static final String VERSION       = "v1.0.4";
+  private static final int SUCCESS          = 0;
+  private static final int ERROR_SYNTAX     = 1;
+  private static final int ERROR_VALIDATION = 2;
+  private static final int ERROR_NULL       = 3;
+  private static final int ERROR_FILEIO     = 4;
+  private static final int ERROR_USAGE      = 5;
 
+  private boolean allCorrect                = true;
+  private boolean quietMode                 = false;
+  private String jsonSchema                 = null;;
+  private boolean validateJustify           = false;
+  private boolean validateEverit            = false;
+  private boolean passthroughJustify        = false;
+  private boolean passthroughEverit         = false;
+  private List<String> files                = new ArrayList<>();
+  private JsonValidationService jService    = null;
+  private JsonSchema jSchema                = null;
+  private Schema eSchema                    = null;
+
+  public void setValidateJustify(boolean flag) {
+    this.validateJustify = flag;
+  }
+  public void setValidateEverit(boolean flag) {
+    this.validateEverit = flag;
+  }
+  public void setPassthroughJustify(boolean flag) {
+    this.passthroughJustify = flag;
+  }
+  public void setPassthroughEverit(boolean flag) {
+    this.passthroughEverit = flag;
+  }
+  public void setQuietMode(boolean flag) {
+    this.quietMode = flag;
+  }
+  public void setJsonSchemaFile(String jsonSchemaFile) {
+    this.jsonSchema = jsonSchemaFile;
+  }
+  public void setFiles(List<String> files) {
+    this.files = files;
+  }
+
+  /**
+   * Utility class used to print validation errors when using the justify engine.
+   */
   class PrintingProblemHandler implements ProblemHandler {
     public void handleProblems(List<org.leadpony.justify.api.Problem> problems) {
       for(org.leadpony.justify.api.Problem problem : problems) {
@@ -59,54 +107,31 @@ public class JJval {
     }
   }
 
-  public static void usage(String msg) {
-    System.out.println(String.format("%s\nusage: %s [-vj][-ve] -s [schema] file...", msg, "jjval"));
-    System.out.println(String.format("(version: %s)", VERSION));
-    System.out.println("    -vj\t\tvalidate with justify");
-    System.out.println("    -ve\t\tvalidate with everit");
-    System.out.println("    -pj\t\tpassthrough with justify (jakarta.json)");
-    System.out.println("    -pe\t\tpassthrough with everit (org.json)");
-    System.out.println("    -s (schema)\tJSON schema for validation purposes");
-    System.out.println("    -q\t\tquiet mode - no validation output, run only for exit code");
-    System.exit(-1);
+  /**
+   * Print usage and exit with failure.
+   * @param msg error message to print with usage information.
+   */
+  private static void usage(String msg) {
+    System.err.println(String.format("%s\nusage: %s [-vj][-ve] -s [schema] file...", msg, "jjval"));
+    System.err.println(String.format("(version: %s)", VERSION));
+    System.err.println("    -vj\t\tvalidate with justify");
+    System.err.println("    -ve\t\tvalidate with everit");
+    System.err.println("    -pj\t\tpassthrough with justify (jakarta.json)");
+    System.err.println("    -pe\t\tpassthrough with everit (org.json)");
+    System.err.println("    -s (schema)\tJSON schema for validation purposes");
+    System.err.println("    -q\t\tquiet mode - no validation output, run only for exit code");
+    System.exit(ERROR_USAGE);
   }
 
-  public static void main(String[] args) throws Exception {
-    JJval jjval = new JJval();
-    System.exit(jjval.validate(args) ? 0 : -1);
-  }
+  /**
+   * Validate a JSON file optionally against a JSON schema with either the everit (org.json) or justify (jakarta.json) validation engines.
+   * @param args command line arguments passed through.
+   * @return integer result to use as program return value.
+   */
+  public int validate(String[] args) {
+    int retval = SUCCESS;
 
-  public boolean validate(String[] args) throws Exception {
-    String jsonSchema              = null;;
-    boolean validateJustify        = false;
-    boolean validateEverit         = false;
-    boolean passthroughJustify     = false;
-    boolean passthroughEverit      = false;
-    List<String> files             = new ArrayList<>();
-    JsonValidationService jService = null;
-    JsonSchema jSchema             = null;
-    Schema eSchema                 = null;
-
-    // parse command line
-    int state = 0;
-    for (String arg: args) {
-      switch(arg) {
-        case "-vj": validateJustify=true; break;
-        case "-ve": validateEverit=true; break;
-        case "-pj": passthroughJustify=true; break;
-        case "-pe": passthroughEverit=true; break;
-        case "-q":  quietMode=true; break;
-        case "-s":  state = 1; break;
-        default:
-          if (state == 1) {
-            jsonSchema = arg; state = 0;
-          } else {
-            files.add(arg);
-          }
-          break;
-      }
-    }
-    // validate command line arguments
+    // validate arguments
     if (!validateJustify && !validateEverit && !passthroughJustify && !passthroughEverit) { usage("At least one of -vj, -ve, -pj, -pe must be specified");}
     if ((validateJustify || validateEverit) && ((jsonSchema == null) || !(new File(jsonSchema)).canRead())) {usage("with -vj, -ve, a readable schema file must be specified with -s");}
     if (files.size() < 1) {usage("At least one file to validate must be specified");}
@@ -117,45 +142,137 @@ public class JJval {
       jSchema = jService.readSchema(Paths.get(jsonSchema));
     }
     if (validateEverit) {
-      eSchema = SchemaLoader.load(new JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)))));
+      try {
+        eSchema = SchemaLoader.load(new JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)), StandardCharsets.UTF_8)));
+      } catch (IOException e) {
+        retval = ERROR_FILEIO;
+        e.printStackTrace();
+      }
     }
 
     // process all given files
     PrintingProblemHandler handler = new PrintingProblemHandler();
     for (String file: files) {
       if (validateJustify) {
-        System.out.println(String.format("Validating '%s' with justify...", file));
+        System.err.println(String.format("Validating '%s' with justify...", file));
         JsonParser jParser = jService.createParser(Paths.get(file), jSchema, handler);
         while(jParser.hasNext()) { Event jevent = jParser.next(); }
       }
       if (validateEverit) {
-        System.out.println(String.format("Validating '%s' with everit...", file));
-        try {
-          eSchema.validate(new org.json.JSONObject(new String(Files.readAllBytes(Paths.get(file)))));
-        } catch (ValidationException e) {
-          allCorrect = false;
-          if (!quietMode) {System.out.println(e.toJSON());}
+        System.err.println(String.format("Validating '%s' with everit...", file));
+        if (retval == SUCCESS) {
+          try {
+            String inputTxt = null;
+            try {
+              inputTxt = new String(Files.readAllBytes(Paths.get(file)), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+              retval = ERROR_FILEIO;
+              e.printStackTrace();
+            }
+            int i = 0;
+            while (i < inputTxt.length() && Character.isWhitespace(inputTxt.charAt(i))) {
+              i++;
+            }
+            if (inputTxt.charAt(i) == '[') {
+              eSchema.validate(new org.json.JSONArray(inputTxt));
+            } else {
+              eSchema.validate(new org.json.JSONObject(inputTxt));
+            }
+          } catch (ValidationException e) {
+            allCorrect = false;
+            if (!quietMode) {
+              System.out.println(e.toJSON().toString(2));
+            }
+          }
         }
       }
       if (passthroughJustify) {
-        System.out.println(String.format("NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
-        JsonParser parser = Json.createParser(new FileInputStream(file));
-        while(parser.hasNext()) { Event jevent = parser.next(); }
+        System.err.println(String.format("NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
+        JsonParser parser = null;
+        try {
+          parser = Json.createParser(new FileInputStream(file));
+        } catch (FileNotFoundException e) {
+          retval = ERROR_FILEIO;
+          e.printStackTrace();
+        }
+        if (parser == null) {
+          retval = ERROR_NULL;
+        } else {
+          try {
+            while (parser.hasNext()) {
+              Event jevent = parser.next();
+            }
+          } catch (javax.json.stream.JsonParsingException e) {
+            retval = ERROR_SYNTAX;
+            e.printStackTrace();
+          }
+        }
       }
       if (passthroughEverit) {
-        System.out.println(String.format("NOT validating (passthrough) '%s' with everit (org.json)...", file));
-        JSONTokener tokener = new JSONTokener(new FileInputStream(file));
-        while(tokener.more()) { tokener.next(); }
+        System.err.println(String.format("NOT validating (passthrough) '%s' with everit (org.json)...", file));
+        JSONTokener tokener = null;
+        try {
+          tokener = new JSONTokener(new FileInputStream(file));
+        } catch (FileNotFoundException e) {
+          retval = ERROR_FILEIO;
+          e.printStackTrace();
+        }
+        if (tokener == null) {
+          retval = ERROR_NULL;
+        } else {
+          try {
+            while (tokener.more()) {
+              tokener.next();
+            }
+          } catch (org.json.JSONException e) {
+            retval = ERROR_SYNTAX;
+            e.printStackTrace();
+          }
+        }
       }
     }
     if (validateJustify || validateEverit) {
       if (allCorrect) {
-        System.out.println("No validation issues encountered.");
+        System.err.println("No validation issues encountered.");
       } else {
-        System.out.println("At least one validation issue encountered.");
+        System.err.println("At least one validation issue encountered.");
       }
     }
-    return allCorrect;
+    if ((retval == SUCCESS) && !allCorrect) {
+      retval = ERROR_VALIDATION;
+    }
+    return retval;
+  }
+
+  /**
+   * Main driver.
+   * @param args arguments specifiying schema-based validation or not and which engine to use.
+   */
+  public static void main(String[] args) {
+    JJval jjval = new JJval();
+    List<String> filesToValidate = new ArrayList<>();
+
+    // parse command line
+    int state = 0;
+    for (String arg: args) {
+      switch(arg) {
+        case "-vj": jjval.setValidateJustify(true); break;
+        case "-ve": jjval.setValidateEverit(true); break;
+        case "-pj": jjval.setPassthroughJustify(true); break;
+        case "-pe": jjval.setPassthroughEverit(true); break;
+        case "-q":  jjval.setQuietMode(true); break;
+        case "-s":  state = 1; break;
+        default:
+          if (state == 1) {
+            jjval.setJsonSchemaFile(arg); state = 0;
+          } else {
+            filesToValidate.add(arg);
+          }
+          break;
+      }
+    }
+    jjval.setFiles(filesToValidate);
+    System.exit(jjval.validate(args));
   }
 }
 

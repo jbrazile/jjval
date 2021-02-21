@@ -1,0 +1,13 @@
+Validating 'products.err.syntax.json' with everit...
+Exception in thread "main" org.json.JSONException: Unterminated string at 123 [character 0 line 9]
+	at org.json.JSONTokener.syntaxError(JSONTokener.java:507)
+	at org.json.JSONTokener.nextString(JSONTokener.java:320)
+	at org.json.JSONTokener.nextValue(JSONTokener.java:428)
+	at org.json.JSONArray.<init>(JSONArray.java:125)
+	at org.json.JSONTokener.nextValue(JSONTokener.java:434)
+	at org.json.JSONObject.<init>(JSONObject.java:252)
+	at org.json.JSONTokener.nextValue(JSONTokener.java:431)
+	at org.json.JSONArray.<init>(JSONArray.java:125)
+	at org.json.JSONArray.<init>(JSONArray.java:162)
+	at net.brazile.jjval.JJval.validate(JJval.java:177)
+	at net.brazile.jjval.JJval.main(JJval.java:275)

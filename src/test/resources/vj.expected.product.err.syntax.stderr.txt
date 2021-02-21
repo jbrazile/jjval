@@ -1,0 +1,11 @@
+Validating 'product.err.syntax.json' with justify...
+Exception in thread "main" javax.json.stream.JsonParsingException: Unexpected char 10 at (line no=5, column no=29, offset=103)
+	at org.glassfish.json.JsonTokenizer.unexpectedChar(JsonTokenizer.java:577)
+	at org.glassfish.json.JsonTokenizer.readString(JsonTokenizer.java:165)
+	at org.glassfish.json.JsonTokenizer.nextToken(JsonTokenizer.java:355)
+	at org.glassfish.json.JsonParserImpl$ArrayContext.getNextEvent(JsonParserImpl.java:535)
+	at org.glassfish.json.JsonParserImpl.next(JsonParserImpl.java:352)
+	at org.leadpony.justify.internal.base.json.JsonParserDecorator.fetchNextEvent(JsonParserDecorator.java:110)
+	at org.leadpony.justify.internal.base.json.AbstractStreamJsonParser.next(AbstractStreamJsonParser.java:52)
+	at net.brazile.jjval.JJval.validate(JJval.java:159)
+	at net.brazile.jjval.JJval.main(JJval.java:275)
