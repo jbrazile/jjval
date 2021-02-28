@@ -31,11 +31,14 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.Manifest;
 import javax.json.Json;
 import javax.json.stream.JsonParser.Event;
 import javax.json.stream.JsonParser;
@@ -53,16 +56,18 @@ import org.leadpony.justify.api.ProblemHandler;
  * Java-based JSON validator optionally using JSON-Schema.
  */
 public class JJval {
-  private static final String VERSION       = "v1.0.4";
+  private static final String VERSION       = "v1.0.5";
   private static final int SUCCESS          = 0;
   private static final int ERROR_SYNTAX     = 1;
   private static final int ERROR_VALIDATION = 2;
   private static final int ERROR_NULL       = 3;
   private static final int ERROR_FILEIO     = 4;
   private static final int ERROR_USAGE      = 5;
+  private static final String BUILD_TIME    = "Build-Time";
 
   private boolean allCorrect                = true;
   private boolean quietMode                 = false;
+  private boolean showVersion               = true;
   private String jsonSchema                 = null;;
   private boolean validateJustify           = false;
   private boolean validateEverit            = false;
@@ -87,6 +92,9 @@ public class JJval {
   }
   public void setQuietMode(boolean flag) {
     this.quietMode = flag;
+  }
+  public void setShowVersion(boolean flag) {
+    this.showVersion = flag;
   }
   public void setJsonSchemaFile(String jsonSchemaFile) {
     this.jsonSchema = jsonSchemaFile;
@@ -113,7 +121,6 @@ public class JJval {
    */
   private static void usage(String msg) {
     System.err.println(String.format("%s\nusage: %s [-vj][-ve] -s [schema] file...", msg, "jjval"));
-    System.err.println(String.format("(version: %s)", VERSION));
     System.err.println("    -vj\t\tvalidate with justify");
     System.err.println("    -ve\t\tvalidate with everit");
     System.err.println("    -pj\t\tpassthrough with justify (jakarta.json)");
@@ -129,6 +136,9 @@ public class JJval {
    * @return integer result to use as program return value.
    */
   public int validate(String[] args) {
+    if (showVersion && !quietMode) {
+      System.err.println(String.format("jjval (version: %s  build: %s)", VERSION, getJarAttr(BUILD_TIME)));
+    }
     int retval = SUCCESS;
 
     // validate arguments
@@ -146,7 +156,7 @@ public class JJval {
         eSchema = SchemaLoader.load(new JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)), StandardCharsets.UTF_8)));
       } catch (IOException e) {
         retval = ERROR_FILEIO;
-        e.printStackTrace();
+        System.out.println(e.getLocalizedMessage());
       }
     }
 
@@ -167,7 +177,7 @@ public class JJval {
               inputTxt = new String(Files.readAllBytes(Paths.get(file)), StandardCharsets.UTF_8);
             } catch (IOException e) {
               retval = ERROR_FILEIO;
-              e.printStackTrace();
+              System.out.println(e.getLocalizedMessage());
             }
             int i = 0;
             while (i < inputTxt.length() && Character.isWhitespace(inputTxt.charAt(i))) {
@@ -193,7 +203,7 @@ public class JJval {
           parser = Json.createParser(new FileInputStream(file));
         } catch (FileNotFoundException e) {
           retval = ERROR_FILEIO;
-          e.printStackTrace();
+          System.out.println(e.getLocalizedMessage());
         }
         if (parser == null) {
           retval = ERROR_NULL;
@@ -204,7 +214,7 @@ public class JJval {
             }
           } catch (javax.json.stream.JsonParsingException e) {
             retval = ERROR_SYNTAX;
-            e.printStackTrace();
+            System.out.println(e.getLocalizedMessage());
           }
         }
       }
@@ -215,7 +225,7 @@ public class JJval {
           tokener = new JSONTokener(new FileInputStream(file));
         } catch (FileNotFoundException e) {
           retval = ERROR_FILEIO;
-          e.printStackTrace();
+          System.out.println(e.getLocalizedMessage());
         }
         if (tokener == null) {
           retval = ERROR_NULL;
@@ -226,7 +236,7 @@ public class JJval {
             }
           } catch (org.json.JSONException e) {
             retval = ERROR_SYNTAX;
-            e.printStackTrace();
+            System.out.println(e.getLocalizedMessage());
           }
         }
       }
@@ -245,6 +255,32 @@ public class JJval {
   }
 
   /**
+   * Get a string attribute from the containing jar.
+   * @param key the attribute to obtain
+   * @return the string value of the attribute or '(unknown)'
+   */
+  private static String getJarAttr(String key) {
+    String attr = "(unknown)";
+    String cls = (new Exception().getStackTrace())[0].getClassName();
+    try {
+      Class<?> z = Class.forName(cls);
+      String p = z.getResource(z.getSimpleName() + ".class").toString();
+      if (p.startsWith("jar")) {
+        String mp = p.substring(0, p.lastIndexOf("!") + 1) + "/META-INF/MANIFEST.MF";
+        Manifest m = new Manifest(new URL(mp).openStream());
+        Attributes a = m.getMainAttributes();
+        String val = a.getValue(key);
+        if (val != null) {
+          attr = val;
+        }
+      }
+    } catch (Exception e) {
+      // don't care
+    }
+    return attr;
+  }
+
+  /**
    * Main driver.
    * @param args arguments specifiying schema-based validation or not and which engine to use.
    */
@@ -260,6 +296,7 @@ public class JJval {
         case "-ve": jjval.setValidateEverit(true); break;
         case "-pj": jjval.setPassthroughJustify(true); break;
         case "-pe": jjval.setPassthroughEverit(true); break;
+        case "-nv": jjval.setShowVersion(false); break;
         case "-q":  jjval.setQuietMode(true); break;
         case "-s":  state = 1; break;
         default:

@@ -9,5 +9,5 @@ Exception in thread "main" org.json.JSONException: Unterminated string at 123 [c
 	at org.json.JSONTokener.nextValue(JSONTokener.java:431)
 	at org.json.JSONArray.<init>(JSONArray.java:125)
 	at org.json.JSONArray.<init>(JSONArray.java:162)
-	at net.brazile.jjval.JJval.validate(JJval.java:177)
-	at net.brazile.jjval.JJval.main(JJval.java:275)
+	at net.brazile.jjval.JJval.validate(JJval.java:187)
+	at net.brazile.jjval.JJval.main(JJval.java:312)

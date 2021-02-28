@@ -7,5 +7,5 @@ Exception in thread "main" org.json.JSONException: Unterminated string at 104 [c
 	at org.json.JSONTokener.nextValue(JSONTokener.java:434)
 	at org.json.JSONObject.<init>(JSONObject.java:252)
 	at org.json.JSONObject.<init>(JSONObject.java:406)
-	at net.brazile.jjval.JJval.validate(JJval.java:179)
-	at net.brazile.jjval.JJval.main(JJval.java:275)
+	at net.brazile.jjval.JJval.validate(JJval.java:189)
+	at net.brazile.jjval.JJval.main(JJval.java:312)

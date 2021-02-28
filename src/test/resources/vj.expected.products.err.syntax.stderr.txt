@@ -7,5 +7,5 @@ Exception in thread "main" javax.json.stream.JsonParsingException: Unexpected ch
 	at org.glassfish.json.JsonParserImpl.next(JsonParserImpl.java:352)
 	at org.leadpony.justify.internal.base.json.JsonParserDecorator.fetchNextEvent(JsonParserDecorator.java:110)
 	at org.leadpony.justify.internal.base.json.AbstractStreamJsonParser.next(AbstractStreamJsonParser.java:52)
-	at net.brazile.jjval.JJval.validate(JJval.java:159)
-	at net.brazile.jjval.JJval.main(JJval.java:275)
+	at net.brazile.jjval.JJval.validate(JJval.java:169)
+	at net.brazile.jjval.JJval.main(JJval.java:312)
