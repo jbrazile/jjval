@@ -68,7 +68,7 @@ import org.xml.sax.SAXParseException;
  * Java-based JSON validator optionally using JSON-Schema.
  */
 public class JJval {
-  private static final String VERSION       = "v1.0.5";
+  private static final String VERSION       = "v1.0.6";
   private static final int SUCCESS          = 0;
   private static final int ERROR_SYNTAX     = 1;
   private static final int ERROR_VALIDATION = 2;
