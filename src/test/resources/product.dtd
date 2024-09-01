@@ -1,0 +1,10 @@
+<!ELEMENT product (productId,productName,price?,tags?,dimensions?)>
+<!ELEMENT productId (#PCDATA)>
+<!ELEMENT productName (#PCDATA)>
+<!ELEMENT price (#PCDATA)>
+<!ELEMENT tags (tag+)>
+<!ELEMENT tag (#PCDATA)>
+<!ELEMENT dimensions (length,width,height)>
+<!ELEMENT length (#PCDATA)>
+<!ELEMENT width (#PCDATA)>
+<!ELEMENT height (#PCDATA)>

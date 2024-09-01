@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE product SYSTEM "product.dtd">
+<product>
+  <productId>1</productId>
+  <productName>An ice sculpture</productName>
+  <price>12.5</price>
+  <tags>
+    <tag>cold</tag>
+    <tag>ice</tag>
+  </tags>
+  <dimensions>
+    <length>7</length>
+    <width>12</width>
+    <height>9.5</height>
+  </dimensions>
+</product>

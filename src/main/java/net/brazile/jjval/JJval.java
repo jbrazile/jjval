@@ -39,9 +39,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
+
 import javax.json.Json;
 import javax.json.stream.JsonParser.Event;
 import javax.json.stream.JsonParser;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+
 import org.everit.json.schema.Schema;
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
@@ -51,6 +56,13 @@ import org.json.JSONTokener;
 import org.leadpony.justify.api.JsonSchema;
 import org.leadpony.justify.api.JsonValidationService;
 import org.leadpony.justify.api.ProblemHandler;
+import org.w3c.dom.Document;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.ErrorHandler;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+import org.xml.sax.SAXParseException;
+
 
 /**
  * Java-based JSON validator optionally using JSON-Schema.
@@ -69,10 +81,13 @@ public class JJval {
   private boolean quietMode                 = false;
   private boolean showVersion               = true;
   private String jsonSchema                 = null;;
+  private String xmlDtd                     = null;;
   private boolean validateJustify           = false;
   private boolean validateEverit            = false;
+  private boolean validateXml               = false;
   private boolean passthroughJustify        = false;
   private boolean passthroughEverit         = false;
+  private boolean matchingDtdProvided       = false;
   private List<String> files                = new ArrayList<>();
   private JsonValidationService jService    = null;
   private JsonSchema jSchema                = null;
@@ -83,6 +98,9 @@ public class JJval {
   }
   public void setValidateEverit(boolean flag) {
     this.validateEverit = flag;
+  }
+  public void setValidateXml(boolean flag) {
+    this.validateXml = flag;
   }
   public void setPassthroughJustify(boolean flag) {
     this.passthroughJustify = flag;
@@ -98,6 +116,9 @@ public class JJval {
   }
   public void setJsonSchemaFile(String jsonSchemaFile) {
     this.jsonSchema = jsonSchemaFile;
+  }
+  public void setXmlDtdFile(String xmlDtdFile) {
+    this.xmlDtd = xmlDtdFile;
   }
   public void setFiles(List<String> files) {
     this.files = files;
@@ -121,11 +142,14 @@ public class JJval {
    */
   private static void usage(String msg) {
     System.err.println(String.format("%s\nusage: %s [-vj][-ve] -s [schema] file...", msg, "jjval"));
-    System.err.println("    -vj\t\tvalidate with justify");
-    System.err.println("    -ve\t\tvalidate with everit");
+    System.err.println("    -vj\t\tvalidate json with justify");
+    System.err.println("    -ve\t\tvalidate json with everit");
+    System.err.println("    -vx\t\tvalidate xml with standard jdk");
     System.err.println("    -pj\t\tpassthrough with justify (jakarta.json)");
     System.err.println("    -pe\t\tpassthrough with everit (org.json)");
+    System.err.println("    -nv\t\tdon't show version");
     System.err.println("    -s (schema)\tJSON schema for validation purposes");
+    System.err.println("    -d (dtd)\tDTD document for xml validation purposes");
     System.err.println("    -q\t\tquiet mode - no validation output, run only for exit code");
     System.exit(ERROR_USAGE);
   }
@@ -142,7 +166,7 @@ public class JJval {
     int retval = SUCCESS;
 
     // validate arguments
-    if (!validateJustify && !validateEverit && !passthroughJustify && !passthroughEverit) { usage("At least one of -vj, -ve, -pj, -pe must be specified");}
+    if (!validateJustify && !validateEverit && !passthroughJustify && !passthroughEverit && !validateXml) { usage("At least one of -vj, -ve, -vs, -pj, -pe must be specified");}
     if ((validateJustify || validateEverit) && ((jsonSchema == null) || !(new File(jsonSchema)).canRead())) {usage("with -vj, -ve, a readable schema file must be specified with -s");}
     if (files.size() < 1) {usage("At least one file to validate must be specified");}
 
@@ -196,6 +220,74 @@ public class JJval {
           }
         }
       }
+      if (validateXml) {
+        try {
+          DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+          factory.setValidating(true);
+          factory.setNamespaceAware(true);
+          DocumentBuilder builder = factory.newDocumentBuilder();
+          builder.setEntityResolver(new EntityResolver() {
+
+            @Override
+            public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
+              matchingDtdProvided = false;
+              if (xmlDtd != null && !xmlDtd.isEmpty()) {
+                String fName = new File(xmlDtd).getName();
+                if (systemId != null) {
+                  if (systemId.endsWith(fName)) {
+                    System.err.println(String.format("Validating '%s' with dtd '%s'...", file, xmlDtd));
+                    matchingDtdProvided = true;
+                    return new InputSource(new File(xmlDtd).toURI().toString());
+                  } else {
+                    System.err.println(String.format("NOT Validating (passthrough) '%s' (expected dtd='%s' but provided dtd='%s')...",
+                      file, new File(systemId).getName(), fName));
+                    return null;
+                  }
+                }
+              }
+              System.err.println(String.format("NOT Validating (passthrough) '%s' with jdk..", file));
+              return null;
+            }
+          });
+
+          builder.setErrorHandler(new ErrorHandler() {
+            @Override
+            public void warning(SAXParseException exception) throws SAXException {
+              allCorrect = false;
+              if (!quietMode) {
+                System.out.println("Warning: " + exception.toString());
+              }
+            }
+
+            @Override
+            public void error(SAXParseException exception) throws SAXException {
+              allCorrect = false;
+              if (!quietMode) {
+                System.out.println("Error: " + exception.toString());
+              }
+            }
+
+            @Override
+            public void fatalError(SAXParseException exception) throws SAXException {
+              allCorrect = false;
+              if (!quietMode) {
+                System.out.println("Fatal error: " + exception.toString());
+              }
+            }
+          });
+
+          File xmlFile = new File(file);
+          Document document = builder.parse(xmlFile);
+          retval = SUCCESS;
+
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+          allCorrect = false;
+          if (!quietMode) {
+            System.out.println("Validation error: " + e.toString());
+          }
+          retval = ERROR_VALIDATION;
+        }
+      }
       if (passthroughJustify) {
         System.err.println(String.format("NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
         JsonParser parser = null;
@@ -241,7 +333,7 @@ public class JJval {
         }
       }
     }
-    if (validateJustify || validateEverit) {
+    if (validateJustify || validateEverit || (validateXml && matchingDtdProvided)) {
       if (allCorrect) {
         System.err.println("No validation issues encountered.");
       } else {
@@ -294,16 +386,26 @@ public class JJval {
       switch(arg) {
         case "-vj": jjval.setValidateJustify(true); break;
         case "-ve": jjval.setValidateEverit(true); break;
+        case "-vx": jjval.setValidateXml(true); break;
         case "-pj": jjval.setPassthroughJustify(true); break;
         case "-pe": jjval.setPassthroughEverit(true); break;
         case "-nv": jjval.setShowVersion(false); break;
         case "-q":  jjval.setQuietMode(true); break;
         case "-s":  state = 1; break;
+        case "-d":  state = 2; break;
         default:
-          if (state == 1) {
-            jjval.setJsonSchemaFile(arg); state = 0;
-          } else {
-            filesToValidate.add(arg);
+          switch (state) {
+            case 1:
+              jjval.setJsonSchemaFile(arg);
+              state = 0;
+              break;
+            case 2:
+              jjval.setXmlDtdFile(arg);
+              state = 0;
+              break;
+            default:
+              filesToValidate.add(arg);
+              break;
           }
           break;
       }

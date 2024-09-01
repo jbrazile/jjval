@@ -9,8 +9,7 @@
   <version>1.1-SNAPSHOT</version>
 
   <properties>
-    <maven.compiler.source>1.8</maven.compiler.source>
-    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.release>8</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
@@ -507,6 +506,44 @@
               </exec>
               <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
                 <arg line="pe.expected.products.err.validation.stderr.txt pe.products.err.validation.stderr.txt"/>
+              </exec>
+
+              <echo>Case vx product.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vx.product.ok.validation.stdout.txt" error="${project.build.directory}/test-classes/vx.product.err.validation.stderr.txt" resultproperty="jjval.vx.product.ok">
+                <arg line="-jar ../${project.build.finalName}.jar -nv -vx -d product.dtd product.ok.xml"/>
+              </exec>
+              <echo>Expected: 0	Observed: ${jjval.vx.product.ok}</echo>
+              <fail message="ERROR: expected=0 observed=${jjval.vx.product.ok}"><condition><not><equals arg1="${jjval.vx.product.ok}" arg2="0"/></not></condition></fail>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vx.expected.product.ok.stdout.txt vx.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vx.expected.product.ok.stdout.txt vx.product.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vx.expected.product.ok.stderr.txt vx.product.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vx.expected.product.ok.stderr.txt vx.product.ok.stderr.txt"/>
+              </exec>
+
+              <echo>Case vx products.ok</echo>
+              <exec dir="${project.build.directory}/test-classes" executable="java" failonerror="false" output="${project.build.directory}/test-classes/vx.products.ok.validation.stdout.txt" error="${project.build.directory}/test-classes/vx.products.err.validation.stderr.txt" resultproperty="jjval.vx.products.ok">
+                <arg line="-jar ../${project.build.finalName}.jar -nv -vx -d products.dtd products.ok.xml"/>
+              </exec>
+              <echo>Expected: 0	Observed: ${jjval.vx.products.ok}</echo>
+              <fail message="ERROR: expected=0 observed=${jjval.vx.products.ok}"><condition><not><equals arg1="${jjval.vx.products.ok}" arg2="0"/></not></condition></fail>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vx.expected.products.ok.stdout.txt vx.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vx.expected.products.ok.stdout.txt vx.products.ok.stdout.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="diff" failonerror="true" os="Linux">
+                <arg line="-w -s vx.expected.products.ok.stderr.txt vx.products.ok.stderr.txt"/>
+              </exec>
+              <exec dir="${project.build.directory}/test-classes" executable="fc" failonerror="true" os="Windows 10">
+                <arg line="vx.expected.products.ok.stderr.txt vx.products.ok.stderr.txt"/>
               </exec>
 
             </target>
