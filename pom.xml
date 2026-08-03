@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>net.brazile.jjval</groupId>
   <artifactId>jjval</artifactId>
-  <version>1.0.8-SNAPSHOT</version>
+  <version>1.0.8</version>
 
   <properties>
     <maven.compiler.release>8</maven.compiler.release>
@@ -17,6 +15,7 @@
     <connection>scm:git:https://github.com/jbrazile/jjval</connection>
     <developerConnection>scm:git:https://github.com/jbrazile/jjval</developerConnection>
     <url>https://github.com/jbrazile/jjval</url>
+    <tag>jjval-1.0.8</tag>
   </scm>
 
   <dependencies>
@@ -109,21 +108,19 @@
           <configuration>
             <target>
               <echo>Testing ${project.build.finalName}...</echo>
-              <property name="jjval.test.dir" value="${project.build.directory}/test-classes"/>
-              <property name="jjval.jar" value="../${project.build.finalName}.jar"/>
+              <property name="jjval.test.dir" value="${project.build.directory}/test-classes" />
+              <property name="jjval.jar" value="../${project.build.finalName}.jar" />
 
               <!-- compare one output stream of a test case against its expected fixture -->
               <macrodef name="jjval-compare">
-                <attribute name="mode"/>
-                <attribute name="case"/>
-                <attribute name="stream"/>
+                <attribute name="mode" />
+                <attribute name="case" />
+                <attribute name="stream" />
                 <sequential>
                   <fail message="FAILED @{mode} @{case}: @{stream} differs (expected '@{mode}.expected.@{case}.@{stream}.txt', actual '@{mode}.@{case}.@{stream}.txt' in ${jjval.test.dir})">
                     <condition>
                       <not>
-                        <filesmatch textfile="true"
-                                    file1="${jjval.test.dir}/@{mode}.expected.@{case}.@{stream}.txt"
-                                    file2="${jjval.test.dir}/@{mode}.@{case}.@{stream}.txt"/>
+                        <filesmatch textfile="true" file1="${jjval.test.dir}/@{mode}.expected.@{case}.@{stream}.txt" file2="${jjval.test.dir}/@{mode}.@{case}.@{stream}.txt" />
                       </not>
                     </condition>
                   </fail>
@@ -132,133 +129,124 @@
 
               <!-- run one test case and check its exit code, stdout and stderr -->
               <macrodef name="jjval-case">
-                <attribute name="mode"/>
-                <attribute name="case"/>
-                <attribute name="args"/>
-                <attribute name="expected"/>
+                <attribute name="mode" />
+                <attribute name="case" />
+                <attribute name="args" />
+                <attribute name="expected" />
                 <sequential>
-                  <local name="jjval.exit"/>
-                  <exec dir="${jjval.test.dir}" executable="java" failonerror="false"
-                        output="${jjval.test.dir}/@{mode}.@{case}.stdout.txt"
-                        error="${jjval.test.dir}/@{mode}.@{case}.stderr.txt"
-                        resultproperty="jjval.exit">
-                    <arg line="-jar ${jjval.jar} -nv -@{mode} @{args}"/>
+                  <local name="jjval.exit" />
+                  <exec dir="${jjval.test.dir}" executable="java" failonerror="false" output="${jjval.test.dir}/@{mode}.@{case}.stdout.txt" error="${jjval.test.dir}/@{mode}.@{case}.stderr.txt" resultproperty="jjval.exit">
+                    <arg line="-jar ${jjval.jar} -nv -@{mode} @{args}" />
                   </exec>
                   <echo>Case @{mode} @{case}: expected exit=@{expected} observed=${jjval.exit}</echo>
                   <fail message="FAILED @{mode} @{case}: expected exit=@{expected} observed=${jjval.exit}">
-                    <condition><not><equals arg1="${jjval.exit}" arg2="@{expected}"/></not></condition>
+                    <condition><not><equals arg1="${jjval.exit}" arg2="@{expected}" /></not></condition>
                   </fail>
-                  <jjval-compare mode="@{mode}" case="@{case}" stream="stdout"/>
-                  <jjval-compare mode="@{mode}" case="@{case}" stream="stderr"/>
+                  <jjval-compare mode="@{mode}" case="@{case}" stream="stdout" />
+                  <jjval-compare mode="@{mode}" case="@{case}" stream="stderr" />
                 </sequential>
               </macrodef>
 
               <!-- schema validation: 0=ok, 1=syntax error, 2=validation error -->
-              <jjval-case mode="vj" case="product.ok"             expected="0" args="-s product.schema.json product.ok.json"/>
-              <jjval-case mode="vj" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.json"/>
-              <jjval-case mode="vj" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json"/>
-              <jjval-case mode="vj" case="products.ok"             expected="0" args="-s products.schema.json products.ok.json"/>
-              <jjval-case mode="vj" case="products.err.syntax"     expected="1" args="-s products.schema.json products.err.syntax.json"/>
-              <jjval-case mode="vj" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json"/>
+              <jjval-case mode="vj" case="product.ok" expected="0" args="-s product.schema.json product.ok.json" />
+              <jjval-case mode="vj" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.json" />
+              <jjval-case mode="vj" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json" />
+              <jjval-case mode="vj" case="products.ok" expected="0" args="-s products.schema.json products.ok.json" />
+              <jjval-case mode="vj" case="products.err.syntax" expected="1" args="-s products.schema.json products.err.syntax.json" />
+              <jjval-case mode="vj" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json" />
 
-              <jjval-case mode="ve" case="product.ok"             expected="0" args="-s product.schema.json product.ok.json"/>
-              <jjval-case mode="ve" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.json"/>
-              <jjval-case mode="ve" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json"/>
-              <jjval-case mode="ve" case="products.ok"             expected="0" args="-s products.schema.json products.ok.json"/>
-              <jjval-case mode="ve" case="products.err.syntax"     expected="1" args="-s products.schema.json products.err.syntax.json"/>
-              <jjval-case mode="ve" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json"/>
+              <jjval-case mode="ve" case="product.ok" expected="0" args="-s product.schema.json product.ok.json" />
+              <jjval-case mode="ve" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.json" />
+              <jjval-case mode="ve" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json" />
+              <jjval-case mode="ve" case="products.ok" expected="0" args="-s products.schema.json products.ok.json" />
+              <jjval-case mode="ve" case="products.err.syntax" expected="1" args="-s products.schema.json products.err.syntax.json" />
+              <jjval-case mode="ve" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json" />
 
-              <jjval-case mode="vn" case="product.ok"             expected="0" args="-s product.schema.json product.ok.json"/>
-              <jjval-case mode="vn" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.json"/>
-              <jjval-case mode="vn" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json"/>
-              <jjval-case mode="vn" case="products.ok"             expected="0" args="-s products.schema.json products.ok.json"/>
-              <jjval-case mode="vn" case="products.err.syntax"     expected="1" args="-s products.schema.json products.err.syntax.json"/>
-              <jjval-case mode="vn" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json"/>
+              <jjval-case mode="vn" case="product.ok" expected="0" args="-s product.schema.json product.ok.json" />
+              <jjval-case mode="vn" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.json" />
+              <jjval-case mode="vn" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json" />
+              <jjval-case mode="vn" case="products.ok" expected="0" args="-s products.schema.json products.ok.json" />
+              <jjval-case mode="vn" case="products.err.syntax" expected="1" args="-s products.schema.json products.err.syntax.json" />
+              <jjval-case mode="vn" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json" />
 
               <!-- passthrough (parse only): 0=ok, 1=syntax error, schema violations are ignored -->
-              <jjval-case mode="pj" case="product.ok"             expected="0" args="product.ok.json"/>
-              <jjval-case mode="pj" case="product.err.syntax"     expected="1" args="product.err.syntax.json"/>
-              <jjval-case mode="pj" case="product.err.validation" expected="0" args="product.err.validation.json"/>
-              <jjval-case mode="pj" case="products.ok"             expected="0" args="products.ok.json"/>
-              <jjval-case mode="pj" case="products.err.syntax"     expected="1" args="products.err.syntax.json"/>
-              <jjval-case mode="pj" case="products.err.validation" expected="0" args="products.err.validation.json"/>
+              <jjval-case mode="pj" case="product.ok" expected="0" args="product.ok.json" />
+              <jjval-case mode="pj" case="product.err.syntax" expected="1" args="product.err.syntax.json" />
+              <jjval-case mode="pj" case="product.err.validation" expected="0" args="product.err.validation.json" />
+              <jjval-case mode="pj" case="products.ok" expected="0" args="products.ok.json" />
+              <jjval-case mode="pj" case="products.err.syntax" expected="1" args="products.err.syntax.json" />
+              <jjval-case mode="pj" case="products.err.validation" expected="0" args="products.err.validation.json" />
 
-              <jjval-case mode="pe" case="product.ok"             expected="0" args="product.ok.json"/>
-              <jjval-case mode="pe" case="product.err.syntax"     expected="1" args="product.err.syntax.json"/>
-              <jjval-case mode="pe" case="product.err.validation" expected="0" args="product.err.validation.json"/>
-              <jjval-case mode="pe" case="products.ok"             expected="0" args="products.ok.json"/>
-              <jjval-case mode="pe" case="products.err.syntax"     expected="1" args="products.err.syntax.json"/>
-              <jjval-case mode="pe" case="products.err.validation" expected="0" args="products.err.validation.json"/>
+              <jjval-case mode="pe" case="product.ok" expected="0" args="product.ok.json" />
+              <jjval-case mode="pe" case="product.err.syntax" expected="1" args="product.err.syntax.json" />
+              <jjval-case mode="pe" case="product.err.validation" expected="0" args="product.err.validation.json" />
+              <jjval-case mode="pe" case="products.ok" expected="0" args="products.ok.json" />
+              <jjval-case mode="pe" case="products.err.syntax" expected="1" args="products.err.syntax.json" />
+              <jjval-case mode="pe" case="products.err.validation" expected="0" args="products.err.validation.json" />
 
-              <jjval-case mode="pn" case="product.ok"             expected="0" args="product.ok.json"/>
-              <jjval-case mode="pn" case="product.err.syntax"     expected="1" args="product.err.syntax.json"/>
-              <jjval-case mode="pn" case="product.err.validation" expected="0" args="product.err.validation.json"/>
-              <jjval-case mode="pn" case="products.ok"             expected="0" args="products.ok.json"/>
-              <jjval-case mode="pn" case="products.err.syntax"     expected="1" args="products.err.syntax.json"/>
-              <jjval-case mode="pn" case="products.err.validation" expected="0" args="products.err.validation.json"/>
+              <jjval-case mode="pn" case="product.ok" expected="0" args="product.ok.json" />
+              <jjval-case mode="pn" case="product.err.syntax" expected="1" args="product.err.syntax.json" />
+              <jjval-case mode="pn" case="product.err.validation" expected="0" args="product.err.validation.json" />
+              <jjval-case mode="pn" case="products.ok" expected="0" args="products.ok.json" />
+              <jjval-case mode="pn" case="products.err.syntax" expected="1" args="products.err.syntax.json" />
+              <jjval-case mode="pn" case="products.err.validation" expected="0" args="products.err.validation.json" />
 
               <!-- xml/dtd validation -->
-              <jjval-case mode="vx" case="product.ok"          expected="0" args="-d product.dtd product.ok.xml"/>
-              <jjval-case mode="vx" case="products.ok"         expected="0" args="-d products.dtd products.ok.xml"/>
-              <jjval-case mode="vx" case="product.err.dtd"     expected="0" args="-d products.dtd product.ok.xml"/>
+              <jjval-case mode="vx" case="product.ok" expected="0" args="-d product.dtd product.ok.xml" />
+              <jjval-case mode="vx" case="products.ok" expected="0" args="-d products.dtd products.ok.xml" />
+              <jjval-case mode="vx" case="product.err.dtd" expected="0" args="-d products.dtd product.ok.xml" />
 
               <!-- xml/xsd validation -->
-              <jjval-case mode="vs" case="product.ok"          expected="0" args="-s product.xsd product.ok.xml"/>
-              <jjval-case mode="vs" case="products.ok"         expected="0" args="-s products.xsd products.ok.xml"/>
+              <jjval-case mode="vs" case="product.ok" expected="0" args="-s product.xsd product.ok.xml" />
+              <jjval-case mode="vs" case="products.ok" expected="0" args="-s products.xsd products.ok.xml" />
 
               <!-- yaml validation via networknt -->
-              <jjval-case mode="vy" case="product.ok"             expected="0" args="-s product.schema.json product.ok.yaml"/>
-              <jjval-case mode="vy" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.yaml"/>
-              <jjval-case mode="vy" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.yaml"/>
+              <jjval-case mode="vy" case="product.ok" expected="0" args="-s product.schema.json product.ok.yaml" />
+              <jjval-case mode="vy" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.yaml" />
+              <jjval-case mode="vy" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.yaml" />
 
               <!-- json-sKema (draft 2020-12) -->
-              <jjval-case mode="vk" case="product.ok"             expected="0" args="-s product.schema.json product.ok.json"/>
-              <jjval-case mode="vk" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.json"/>
-              <jjval-case mode="vk" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json"/>
-              <jjval-case mode="vk" case="products.ok"             expected="0" args="-s products.schema.json products.ok.json"/>
-              <jjval-case mode="vk" case="products.err.syntax"     expected="1" args="-s products.schema.json products.err.syntax.json"/>
-              <jjval-case mode="vk" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json"/>
+              <jjval-case mode="vk" case="product.ok" expected="0" args="-s product.schema.json product.ok.json" />
+              <jjval-case mode="vk" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.json" />
+              <jjval-case mode="vk" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json" />
+              <jjval-case mode="vk" case="products.ok" expected="0" args="-s products.schema.json products.ok.json" />
+              <jjval-case mode="vk" case="products.err.syntax" expected="1" args="-s products.schema.json products.err.syntax.json" />
+              <jjval-case mode="vk" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json" />
 
               <!-- jsonschemafriend -->
-              <jjval-case mode="vf" case="product.ok"             expected="0" args="-s product.schema.json product.ok.json"/>
-              <jjval-case mode="vf" case="product.err.syntax"     expected="1" args="-s product.schema.json product.err.syntax.json"/>
-              <jjval-case mode="vf" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json"/>
-              <jjval-case mode="vf" case="products.ok"             expected="0" args="-s products.schema.json products.ok.json"/>
-              <jjval-case mode="vf" case="products.err.syntax"     expected="1" args="-s products.schema.json products.err.syntax.json"/>
-              <jjval-case mode="vf" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json"/>
+              <jjval-case mode="vf" case="product.ok" expected="0" args="-s product.schema.json product.ok.json" />
+              <jjval-case mode="vf" case="product.err.syntax" expected="1" args="-s product.schema.json product.err.syntax.json" />
+              <jjval-case mode="vf" case="product.err.validation" expected="2" args="-s product.schema.json product.err.validation.json" />
+              <jjval-case mode="vf" case="products.ok" expected="0" args="-s products.schema.json products.ok.json" />
+              <jjval-case mode="vf" case="products.err.syntax" expected="1" args="-s products.schema.json products.err.syntax.json" />
+              <jjval-case mode="vf" case="products.err.validation" expected="2" args="-s products.schema.json products.err.validation.json" />
 
               <!-- command line handling -->
-              <local name="jjval.exit.usage"/>
-              <exec dir="${jjval.test.dir}" executable="java" failonerror="false"
-                    output="${jjval.test.dir}/usage.stdout.txt" error="${jjval.test.dir}/usage.stderr.txt"
-                    resultproperty="jjval.exit.usage">
-                <arg line="-jar ${jjval.jar}"/>
+              <local name="jjval.exit.usage" />
+              <exec dir="${jjval.test.dir}" executable="java" failonerror="false" output="${jjval.test.dir}/usage.stdout.txt" error="${jjval.test.dir}/usage.stderr.txt" resultproperty="jjval.exit.usage">
+                <arg line="-jar ${jjval.jar}" />
               </exec>
               <echo>Case usage (no arguments): expected exit=5 observed=${jjval.exit.usage}</echo>
               <fail message="FAILED usage: expected exit=5 observed=${jjval.exit.usage}">
-                <condition><not><equals arg1="${jjval.exit.usage}" arg2="5"/></not></condition>
+                <condition><not><equals arg1="${jjval.exit.usage}" arg2="5" /></not></condition>
               </fail>
 
-              <local name="jjval.exit.twomodes"/>
-              <exec dir="${jjval.test.dir}" executable="java" failonerror="false"
-                    output="${jjval.test.dir}/usage.twomodes.stdout.txt" error="${jjval.test.dir}/usage.twomodes.stderr.txt"
-                    resultproperty="jjval.exit.twomodes">
-                <arg line="-jar ${jjval.jar} -nv -vj -ve -s product.schema.json product.ok.json"/>
+              <local name="jjval.exit.twomodes" />
+              <exec dir="${jjval.test.dir}" executable="java" failonerror="false" output="${jjval.test.dir}/usage.twomodes.stdout.txt" error="${jjval.test.dir}/usage.twomodes.stderr.txt" resultproperty="jjval.exit.twomodes">
+                <arg line="-jar ${jjval.jar} -nv -vj -ve -s product.schema.json product.ok.json" />
               </exec>
               <echo>Case usage (two modes): expected exit=5 observed=${jjval.exit.twomodes}</echo>
               <fail message="FAILED usage two modes: expected exit=5 observed=${jjval.exit.twomodes}">
-                <condition><not><equals arg1="${jjval.exit.twomodes}" arg2="5"/></not></condition>
+                <condition><not><equals arg1="${jjval.exit.twomodes}" arg2="5" /></not></condition>
               </fail>
 
-              <local name="jjval.exit.help"/>
-              <exec dir="${jjval.test.dir}" executable="java" failonerror="false"
-                    output="${jjval.test.dir}/usage.help.stdout.txt" error="${jjval.test.dir}/usage.help.stderr.txt"
-                    resultproperty="jjval.exit.help">
-                <arg line="-jar ${jjval.jar} -h"/>
+              <local name="jjval.exit.help" />
+              <exec dir="${jjval.test.dir}" executable="java" failonerror="false" output="${jjval.test.dir}/usage.help.stdout.txt" error="${jjval.test.dir}/usage.help.stderr.txt" resultproperty="jjval.exit.help">
+                <arg line="-jar ${jjval.jar} -h" />
               </exec>
               <echo>Case usage (-h): expected exit=0 observed=${jjval.exit.help}</echo>
               <fail message="FAILED usage -h: expected exit=0 observed=${jjval.exit.help}">
-                <condition><not><equals arg1="${jjval.exit.help}" arg2="0"/></not></condition>
+                <condition><not><equals arg1="${jjval.exit.help}" arg2="0" /></not></condition>
               </fail>
 
               <echo>All ${project.build.finalName} CLI tests passed.</echo>
