@@ -1,0 +1,4 @@
+productId: 1
+productName: "An ice sculpture"
+price: [not: valid: yaml: for: this: schema
+

@@ -1,0 +1,2 @@
+[#/items/additionalProperties/false] false schema always fails
+[#/items/required] required properties are missing: productId

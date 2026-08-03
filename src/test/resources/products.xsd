@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:element name="products" type="ProductsType"/>
+
+  <xs:complexType name="ProductsType">
+    <xs:sequence>
+      <xs:element name="product" type="ProductType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ProductType">
+    <xs:sequence>
+      <xs:element name="productId"   type="xs:integer"/>
+      <xs:element name="productName" type="xs:string"/>
+      <xs:element name="price"       type="xs:decimal" minOccurs="0"/>
+      <xs:element name="tags"        type="TagsType"   minOccurs="0"/>
+      <xs:element name="dimensions"  type="DimsType"   minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="TagsType">
+    <xs:sequence>
+      <xs:element name="tag" type="xs:string" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="DimsType">
+    <xs:sequence>
+      <xs:element name="length" type="xs:decimal"/>
+      <xs:element name="width"  type="xs:decimal"/>
+      <xs:element name="height" type="xs:decimal"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>
+

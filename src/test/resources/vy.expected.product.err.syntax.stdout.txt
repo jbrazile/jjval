@@ -1,0 +1,9 @@
+while parsing a flow sequence
+ in 'reader', line 3, column 8:
+    price: [not: valid: yaml: for: this: schema
+           ^
+expected ',' or ']', but got :
+ in 'reader', line 3, column 19:
+    price: [not: valid: yaml: for: this: schema
+                      ^
+ at (line no=3, column no=20)

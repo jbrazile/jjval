@@ -1,6 +1,7 @@
 /**
- * Java JSON schema based validator. This is a simple driver for the justify
- * everit and networknt JSON schema-based validators, packaged as a standalone jar.
+ * Java JSON schema based validator. This is a simple driver for several JSON
+ * schema validators (justify, everit, networknt, json-sKema, jsonschemafriend)
+ * plus DTD and XSD based XML validation, packaged as a standalone jar.
  * <p>
  * MIT License
  * <p>
@@ -27,30 +28,41 @@
 package net.brazile.jjval;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
+import java.io.PrintStream;
+import java.net.URI;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 
-import jakarta.json.Json;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.stream.StreamSource;
+import javax.xml.validation.SchemaFactory;
 
-import org.everit.json.schema.Schema;
+import jakarta.json.Json;
+import jakarta.json.JsonException;
+
 import org.everit.json.schema.ValidationException;
 import org.everit.json.schema.loader.SchemaLoader;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.json.JSONTokener;
+import org.leadpony.justify.api.JsonSchemaReader;
+import org.leadpony.justify.api.JsonSchemaReaderFactory;
 import org.leadpony.justify.api.JsonValidationService;
 import org.leadpony.justify.api.ProblemHandler;
 import org.xml.sax.ErrorHandler;
@@ -58,446 +70,732 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonLocation;
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.networknt.schema.JsonSchemaFactory;
 import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
 
 /**
- * Java-based JSON validator optionally using JSON-Schema.
+ * Java-based validator for JSON, YAML and XML documents, optionally using JSON-Schema.
+ *
+ * <p>Exit codes:
+ * <ul>
+ *   <li>0 - success: no syntax and no validation problems</li>
+ *   <li>1 - syntax error in an input document</li>
+ *   <li>2 - at least one schema/DTD/XSD validation problem</li>
+ *   <li>3 - the supplied schema could not be parsed or understood</li>
+ *   <li>4 - an input file could not be read</li>
+ *   <li>5 - command line usage error</li>
+ * </ul>
  */
 public class JJval {
-  private static final String VERSION                 = "v1.0.7";
-  private static final int SUCCESS                    = 0;
-  private static final int ERROR_SYNTAX               = 1;
-  private static final int ERROR_VALIDATION           = 2;
-  private static final int ERROR_NULL                 = 3;
-  private static final int ERROR_FILEIO               = 4;
-  private static final int ERROR_USAGE                = 5;
-  private static final String BUILD_TIME              = "Build-Time";
+  static final int SUCCESS          = 0;
+  static final int ERROR_SYNTAX     = 1;
+  static final int ERROR_VALIDATION = 2;
+  static final int ERROR_SCHEMA     = 3;
+  static final int ERROR_FILEIO     = 4;
+  static final int ERROR_USAGE      = 5;
 
-  private boolean allCorrect                          = true;
-  private boolean quietMode                           = false;
-  private boolean showVersion                         = true;
-  private String jsonSchema                           = null;
-  private String xmlDtd                               = null;
-  private boolean validateJustify                     = false;
-  private boolean validateEverit                      = false;
-  private boolean validateNetworknt                   = false;
-  private boolean validateXml                         = false;
-  private boolean passthroughJustify                  = false;
-  private boolean passthroughEverit                   = false;
-  private boolean passthroughNetworknt                = false;
-  private boolean matchingDtdProvided                 = false;
-  private List<String> files                          = new ArrayList<>();
-  private JsonValidationService jService              = null;
-  private org.leadpony.justify.api.JsonSchema jSchema = null;
-  private com.networknt.schema.JsonSchema nSchema     = null;
-  private Schema eSchema                              = null;
+  private static final String PROGRAM         = "jjval";
+  private static final String BUILD_TIME_ATTR = "Build-Time";
+  private static final String VERSION_ATTR    = "Implementation-Version";
+  private static final String UNKNOWN         = "(unknown)";
+  private static final String READ_ERROR      = "Error reading input file: ";
+  private static final String SCHEMA_KEYWORD  = "$schema";
 
-  public void setValidateNetworknt(boolean flag) {
-    this.validateNetworknt = flag;
-  }
-  public void setValidateJustify(boolean flag) {
-    this.validateJustify = flag;
-  }
-  public void setValidateEverit(boolean flag) {
-    this.validateEverit = flag;
-  }
-  public void setValidateXml(boolean flag) {
-    this.validateXml = flag;
-  }
-  public void setPassthroughJustify(boolean flag) {
-    this.passthroughJustify = flag;
-  }
-  public void setPassthroughEverit(boolean flag) {
-    this.passthroughEverit = flag;
-  }
-  public void setPassthroughNetworknt(boolean flag) {
-    this.passthroughNetworknt = flag;
-  }
-  public void setQuietMode(boolean flag) {
-    this.quietMode = flag;
-  }
-  public void setShowVersion(boolean flag) {
-    this.showVersion = flag;
-  }
-  public void setJsonSchemaFile(String jsonSchemaFile) {
-    this.jsonSchema = jsonSchemaFile;
-  }
-  public void setXmlDtdFile(String xmlDtdFile) {
-    this.xmlDtd = xmlDtdFile;
-  }
-  public void setFiles(List<String> files) {
-    this.files = files;
-  }
+  // -------------------------------------------------------------------------
+  // Dialect (--draft)
+  // -------------------------------------------------------------------------
 
   /**
-   * Utility class used to print validation errors when using the justify engine.
+   * A JSON Schema dialect that can be pinned on the command line with --draft.
    */
-  class PrintingProblemHandler implements ProblemHandler {
-    public void handleProblems(List<org.leadpony.justify.api.Problem> problems) {
-      for(org.leadpony.justify.api.Problem problem : problems) {
-        allCorrect = false;
-        if (!quietMode) { System.out.println(problem.toString()); }
+  public enum Draft {
+    D04  ("04",   "http://json-schema.org/draft-04/schema#"),
+    D06  ("06",   "http://json-schema.org/draft-06/schema#"),
+    D07  ("07",   "http://json-schema.org/draft-07/schema#"),
+    D2019("2019", "https://json-schema.org/draft/2019-09/schema"),
+    D2020("2020", "https://json-schema.org/draft/2020-12/schema");
+
+    private final String label;
+    private final String metaSchemaUri;
+
+    Draft(String label, String metaSchemaUri) {
+      this.label = label;
+      this.metaSchemaUri = metaSchemaUri;
+    }
+
+    public String label() { return label; }
+    public String metaSchemaUri() { return metaSchemaUri; }
+
+    /** Parse a --draft value, accepting a few common spellings. */
+    static Draft fromLabel(String value) {
+      String v = value.trim().toLowerCase()
+          .replace("draft", "").replace("-", "").replace("_", "");
+      switch (v) {
+        case "4":  case "04":        return D04;
+        case "6":  case "06":        return D06;
+        case "7":  case "07":        return D07;
+        case "2019": case "201909":  return D2019;
+        case "2020": case "202012":  return D2020;
+        default:                     return null;
       }
     }
+
+    static String labels() {
+      StringBuilder sb = new StringBuilder();
+      for (Draft d : values()) {
+        sb.append(sb.length() == 0 ? "" : "|").append(d.label);
+      }
+      return sb.toString();
+    }
   }
 
-  /**
-   * Print usage and exit with failure.
-   * @param msg error message to print with usage information.
-   */
-  private static void usage(String msg) {
-    System.err.println(String.format("%s%nusage: %s [-vj][-ve][-vn] -s [schema] file...", msg, "jjval"));
-    System.err.println("    -vj\t\tvalidate json with justify");
-    System.err.println("    -ve\t\tvalidate json with everit");
-    System.err.println("    -vn\t\tvalidate json with networknt");
-    System.err.println("    -vx\t\tvalidate xml with standard jdk");
-    System.err.println("    -pj\t\tpassthrough with justify (jakarta.json)");
-    System.err.println("    -pe\t\tpassthrough with everit (org.json)");
-    System.err.println("    -nv\t\tdon't show version");
-    System.err.println("    -s (schema)\tJSON schema for validation purposes");
-    System.err.println("    -d (dtd)\tDTD document for xml validation purposes");
-    System.err.println("    -q\t\tquiet mode - no validation output, run only for exit code");
-    System.exit(ERROR_USAGE);
+  // -------------------------------------------------------------------------
+  // Mode
+  // -------------------------------------------------------------------------
+
+  /** The single operating mode selected on the command line. */
+  public enum Mode {
+    VJ("-vj", "validate json with justify (jakarta.json)",               true,  false,
+        EnumSet.of(Draft.D04, Draft.D06, Draft.D07)),
+    VE("-ve", "validate json with everit (org.json)",                    true,  false,
+        EnumSet.of(Draft.D04, Draft.D06, Draft.D07)),
+    VN("-vn", "validate json with networknt (jackson)",                  true,  false,
+        EnumSet.allOf(Draft.class)),
+    VK("-vk", "validate json with json-sKema (draft 2020-12 only)",      true,  false,
+        EnumSet.of(Draft.D2020)),
+    VF("-vf", "validate json with jsonschemafriend",                     true,  false,
+        EnumSet.allOf(Draft.class)),
+    VY("-vy", "validate yaml with networknt (jackson-dataformat-yaml)",  true,  false,
+        EnumSet.allOf(Draft.class)),
+    VX("-vx", "validate xml against a dtd given with -d",                false, true,
+        EnumSet.noneOf(Draft.class)),
+    VS("-vs", "validate xml against a w3c xsd given with -s",            true,  false,
+        EnumSet.noneOf(Draft.class)),
+    PJ("-pj", "parse only (passthrough) with justify (jakarta.json)",    false, false,
+        EnumSet.noneOf(Draft.class)),
+    PE("-pe", "parse only (passthrough) with everit (org.json)",         false, false,
+        EnumSet.noneOf(Draft.class)),
+    PN("-pn", "parse only (passthrough) with networknt (jackson)",       false, false,
+        EnumSet.noneOf(Draft.class));
+
+    private final String flag;
+    private final String description;
+    private final boolean requiresSchema;
+    private final boolean dtd;
+    private final Set<Draft> supportedDrafts;
+
+    Mode(String flag, String description,
+         boolean requiresSchema, boolean dtd, Set<Draft> supportedDrafts) {
+      this.flag = flag;
+      this.description = description;
+      this.requiresSchema = requiresSchema;
+      this.dtd = dtd;
+      this.supportedDrafts = supportedDrafts;
+    }
+
+    public String flag() { return flag; }
+
+    /** Look up a mode by its command-line flag, e.g. "-vj". */
+    static Mode fromFlag(String flag) {
+      for (Mode mode : values()) {
+        if (mode.flag.equals(flag)) return mode;
+      }
+      return null;
+    }
   }
 
-  /**
-   * Validate a JSON file optionally against a JSON schema with either the everit (org.json) or justify (jakarta.json) validation engines.
-   * @param args command line arguments passed through.
-   * @return integer result to use as program return value.
-   */
-  private int validate(String[] args) {
+  // -------------------------------------------------------------------------
+  // Instance state
+  // -------------------------------------------------------------------------
+
+  private boolean allCorrect          = true;
+  private boolean quietMode           = false;
+  private boolean showVersion         = true;
+  private boolean helpRequested       = false;
+  private boolean matchingDtdProvided = false;
+  private String  schemaFile          = null;
+  private String  xmlDtd              = null;
+  private Mode    mode                = null;
+  private Draft   draft               = null;
+  private List<String> files          = new ArrayList<>();
+
+  // engine state (only the field for the selected mode is populated)
+  private JsonValidationService jService                       = null;
+  private org.leadpony.justify.api.JsonSchema jSchema          = null;
+  private com.networknt.schema.JsonSchema nSchema              = null;
+  private org.everit.json.schema.Schema eSchema                = null;
+  private com.github.erosb.jsonsKema.Validator kValidator      = null;
+  private net.jimblackler.jsonschemafriend.Schema fSchema      = null;
+  private net.jimblackler.jsonschemafriend.Validator fValidator = null;
+  private javax.xml.validation.Schema xsdSchema                = null;
+
+  // -------------------------------------------------------------------------
+  // Setters
+  // -------------------------------------------------------------------------
+
+  public void setMode(Mode mode)           { this.mode = mode; }
+  public Mode getMode()                    { return mode; }
+  public void setDraft(Draft draft)        { this.draft = draft; }
+  public void setQuietMode(boolean f)      { this.quietMode = f; }
+  public void setShowVersion(boolean f)    { this.showVersion = f; }
+  public void setSchemaFile(String s)      { this.schemaFile = s; }
+  public void setXmlDtdFile(String s)      { this.xmlDtd = s; }
+  public void setFiles(List<String> files) { this.files = new ArrayList<>(files); }
+
+  // -------------------------------------------------------------------------
+  // Output helpers
+  // -------------------------------------------------------------------------
+
+  private void report(String message) {
+    if (!quietMode) System.out.println(message);
+  }
+
+  private void reportAll(Set<String> messages) {
+    for (String m : messages) report(m);
+  }
+
+  private void status(String message) {
+    if (!quietMode) System.err.println(message);
+  }
+
+  // -------------------------------------------------------------------------
+  // Usage
+  // -------------------------------------------------------------------------
+
+  static int usage(String msg) {
+    PrintStream out = (msg == null) ? System.out : System.err;
+    if (msg != null) out.println(msg);
+    out.println(String.format(
+        "usage: %s <mode> [-s schema] [-d dtd] [--draft %s] [-nv] [-q] file...",
+        PROGRAM, Draft.labels()));
+    out.println("  exactly one mode must be given:");
+    for (Mode m : Mode.values()) {
+      out.println(String.format("    %s\t\t%s", m.flag(), m.description));
+    }
+    out.println("  options:");
+    out.println("    -s (schema)\tJSON schema (or .xsd for -vs) to validate against");
+    out.println("    -d (dtd)\tDTD file to validate against (used by -vx)");
+    out.println(String.format("    --draft (%s)", Draft.labels()));
+    out.println("\t\tdialect to assume when the schema has no $schema keyword");
+    out.println("    -nv\t\tdon't show version");
+    out.println("    -q\t\tquiet mode - no output, run only for the exit code");
+    out.println("    -h\t\tshow this help");
+    out.println("  exit: 0=ok 1=syntax error 2=validation error 3=bad schema 4=file i/o 5=usage");
+    return (msg == null) ? SUCCESS : ERROR_USAGE;
+  }
+
+  // -------------------------------------------------------------------------
+  // Main entry point
+  // -------------------------------------------------------------------------
+
+  public int validate() {
+    int retval = checkArguments();
+    if (retval != SUCCESS) return retval;
+
     if (showVersion && !quietMode) {
-      System.err.println(String.format("jjval (version: %s  build: %s)", VERSION, getJarAttr(BUILD_TIME)));
+      System.err.println(String.format("%s (version: %s  build: %s)",
+          PROGRAM, getJarAttr(VERSION_ATTR), getJarAttr(BUILD_TIME_ATTR)));
     }
 
-    // Validate arguments
-    validateArguments();
+    retval = setupValidators();
+    if (retval != SUCCESS) return retval;
 
-    // Setup validators
-    int retval = setupValidators();
-    if (retval != SUCCESS) {
-      return retval;
-    }
-
-    // Process all given files
     PrintingProblemHandler handler = new PrintingProblemHandler();
     for (String file : files) {
-      Path path = Paths.get(file);
-      if (validateJustify) {
-        retval = processJustifyValidation(file, path, handler);
-      } else if (validateEverit) {
-        retval = processEveritValidation(file, path);
-      } else if (validateNetworknt) {
-        retval = processNetworkntValidation(file, path);
-      } else if (validateXml) {
-        retval = processXmlValidation(file);
-      } else if (passthroughJustify) {
-        retval = processJustifyPassthrough(file);
-      } else if (passthroughEverit) {
-        retval = processEveritPassthrough(file);
-      } else if (passthroughNetworknt) {
-        retval = processNetworkntPassthrough(file, path);
-      }
+      int r = processFile(file, handler);
+      if (retval == SUCCESS) retval = r;
     }
 
-    // Final validation result
-    if (validateJustify || validateEverit || validateNetworknt || (validateXml && matchingDtdProvided)) {
-      System.err.println(allCorrect ? "No validation issues encountered." : "At least one validation issue encountered.");
-    }
-    if ((retval == SUCCESS) && !allCorrect) {
-      retval = ERROR_VALIDATION;
+    // summary only when something was actually validated
+    if (mode.requiresSchema || (mode.dtd && matchingDtdProvided)) {
+      if (!allCorrect) {
+        status("At least one validation issue encountered.");
+      } else if (retval == SUCCESS) {
+        status("No validation issues encountered.");
+      } else {
+        status("Validation incomplete - at least one document could not be processed.");
+      }
+      if ((retval == SUCCESS) && !allCorrect) retval = ERROR_VALIDATION;
     }
     return retval;
   }
 
-  /**
-   * Validate the command line arguments.
-   * If any validation fails, print usage and exit with an error code.
-   */
-  private void validateArguments() {
-    if (!validateJustify && !validateEverit && !validateNetworknt && !passthroughJustify && !passthroughEverit && !validateXml) {
-      usage("At least one of -vj, -ve, -vs, -pj, -pe must be specified");
+  private int processFile(String file, PrintingProblemHandler handler) {
+    Path path;
+    try {
+      path = Paths.get(file);
+    } catch (InvalidPathException e) {
+      System.err.println(String.format("Cannot read '%s': %s", file, e.getMessage()));
+      return ERROR_FILEIO;
     }
-    if ((validateJustify || validateEverit || validateNetworknt) && ((jsonSchema == null) || !(new File(jsonSchema)).canRead())) {
-      usage("with -vj, -ve, -vn, a readable schema file must be specified with -s");
+    if (!Files.isReadable(path)) {
+      System.err.println(String.format("Cannot read '%s'", file));
+      return ERROR_FILEIO;
+    }
+    switch (mode) {
+      case VJ:  return processJustifyValidation(file, path, handler);
+      case VE:  return processEveritValidation(file, path);
+      case VN:  return processNetworkntValidation(file, path, false);
+      case VY:  return processNetworkntValidation(file, path, true);
+      case VK:  return processSkemaValidation(file, path);
+      case VF:  return processFriendValidation(file, path);
+      case VX:  return processDtdValidation(file);
+      case VS:  return processXsdValidation(file);
+      case PJ:  return processJustifyPassthrough(file, path);
+      case PE:  return processEveritPassthrough(file, path);
+      case PN:  return processNetworkntPassthrough(file, path);
+      default:  return ERROR_USAGE;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Argument validation
+  // -------------------------------------------------------------------------
+
+  private int checkArguments() {
+    if (mode == null) {
+      StringBuilder flags = new StringBuilder();
+      for (Mode m : Mode.values()) {
+        flags.append(flags.length() == 0 ? "" : ", ").append(m.flag());
+      }
+      return usage("Exactly one of " + flags + " must be specified");
+    }
+    if (mode.requiresSchema && ((schemaFile == null) || !(new File(schemaFile)).canRead())) {
+      return usage(String.format(
+          "with %s, a readable schema file must be specified with -s", mode.flag()));
+    }
+    if (draft != null && !mode.supportedDrafts.contains(draft)) {
+      if (mode.supportedDrafts.isEmpty()) {
+        return usage(String.format("%s does not support --draft", mode.flag()));
+      }
+      StringBuilder supported = new StringBuilder();
+      for (Draft d : mode.supportedDrafts) {
+        supported.append(supported.length() == 0 ? "" : ", ").append(d.label());
+      }
+      return usage(String.format("%s does not support --draft %s (supported: %s)",
+          mode.flag(), draft.label(), supported));
     }
     if (files.isEmpty()) {
-      usage("At least one file to validate must be specified");
+      return usage("At least one file to validate must be specified");
     }
+    return SUCCESS;
   }
 
-  /**
-   * Setup the JSON schema validators.
-   * @return SUCCESS if setup was successful, otherwise an error code.
-   */
+  // -------------------------------------------------------------------------
+  // Schema setup
+  // -------------------------------------------------------------------------
+
   private int setupValidators() {
+    if (!mode.requiresSchema) return SUCCESS;
     try {
-      if (validateJustify) {
-        jService = JsonValidationService.newInstance();
-        try (InputStream schemaStream = Files.newInputStream(Paths.get(jsonSchema))) {
-          jSchema = jService.readSchema(schemaStream);
-        }
-      }
-      if (validateEverit) {
-        eSchema = SchemaLoader.load(new JSONObject(new String(Files.readAllBytes(Paths.get(jsonSchema)), StandardCharsets.UTF_8)));
-      }
-      if (validateNetworknt) {
-        JsonSchemaFactory schemaFactory = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V202012);
-        nSchema = schemaFactory.getSchema(Files.newInputStream(Paths.get(jsonSchema)));
+      switch (mode) {
+        case VJ:           setupJustify();    break;
+        case VE:           setupEverit();     break;
+        case VN: case VY:  setupNetworknt();  break;
+        case VK:           setupSkema();      break;
+        case VF:           setupFriend();     break;
+        case VS:           setupXsd();        break;
+        default: break;
       }
     } catch (IOException e) {
-      System.out.println("Error reading Schema: " + e.getMessage());
+      System.err.println(String.format(
+          "Error reading schema '%s': %s", schemaFile, e.getMessage()));
       return ERROR_FILEIO;
+    } catch (SAXException e) {
+      System.err.println(String.format(
+          "Error parsing schema '%s': %s", schemaFile, e.getMessage()));
+      return ERROR_SCHEMA;
+    } catch (Exception e) {
+      System.err.println(String.format(
+          "Error parsing schema '%s': %s", schemaFile, e.getMessage()));
+      return ERROR_SCHEMA;
     }
     return SUCCESS;
   }
 
-  /**
-   * Process the JSON file with the justify validation engine.
-   * @param file the file to validate
-   * @param path the path to the file
-   * @param handler the problem handler for justify
-   * @return SUCCESS if validation was successful, otherwise an error code.
-   */
+  private void setupJustify() throws IOException {
+    jService = JsonValidationService.newInstance();
+    JsonSchemaReaderFactory factory = jService;
+    if (draft != null) {
+      factory = jService.createSchemaReaderFactoryBuilder()
+          .withDefaultSpecVersion(
+              org.leadpony.justify.api.SpecVersion.valueOf("DRAFT_" + draft.label()))
+          .build();
+    }
+    try (InputStream s = Files.newInputStream(Paths.get(schemaFile));
+         JsonSchemaReader reader = factory.createSchemaReader(s)) {
+      jSchema = reader.read();
+    }
+  }
+
+  private void setupEverit() throws IOException {
+    try (InputStream s = Files.newInputStream(Paths.get(schemaFile))) {
+      JSONObject schemaJson = new JSONObject(new JSONTokener(s));
+      SchemaLoader.SchemaLoaderBuilder builder = SchemaLoader.builder().schemaJson(schemaJson);
+      if (draft == Draft.D06) {
+        builder.draftV6Support();
+      } else if (draft == Draft.D07) {
+        builder.draftV7Support();
+      }
+      eSchema = builder.build().load().build();
+    }
+  }
+
+  private void setupNetworknt() throws IOException {
+    SpecVersion.VersionFlag version = SpecVersion.VersionFlag.V202012;
+    if (draft != null) {
+      switch (draft) {
+        case D04:   version = SpecVersion.VersionFlag.V4;      break;
+        case D06:   version = SpecVersion.VersionFlag.V6;      break;
+        case D07:   version = SpecVersion.VersionFlag.V7;      break;
+        case D2019: version = SpecVersion.VersionFlag.V201909; break;
+        default:    version = SpecVersion.VersionFlag.V202012; break;
+      }
+    }
+    try (InputStream s = Files.newInputStream(Paths.get(schemaFile))) {
+      nSchema = JsonSchemaFactory.getInstance(version).getSchema(s);
+    }
+  }
+
+  private void setupSkema() throws IOException {
+    try (InputStream s = Files.newInputStream(Paths.get(schemaFile))) {
+      com.github.erosb.jsonsKema.Schema kSchema =
+          new com.github.erosb.jsonsKema.SchemaLoader(
+              new com.github.erosb.jsonsKema.JsonParser(s).parse()).load();
+      kValidator = com.github.erosb.jsonsKema.Validator.forSchema(kSchema);
+    }
+  }
+
+  private void setupFriend()
+      throws IOException, net.jimblackler.jsonschemafriend.GenerationException {
+    net.jimblackler.jsonschemafriend.SchemaStore store =
+        new net.jimblackler.jsonschemafriend.SchemaStore();
+    if (draft == null) {
+      fSchema = store.loadSchema(new File(schemaFile));
+    } else {
+      // inject a $schema keyword so that jsonschemafriend uses the requested dialect
+      ObjectMapper mapper = new ObjectMapper();
+      Map<String, Object> schemaJson = mapper.readValue(new File(schemaFile),
+          mapper.getTypeFactory().constructMapType(
+              LinkedHashMap.class, String.class, Object.class));
+      if (!schemaJson.containsKey(SCHEMA_KEYWORD)) {
+        Map<String, Object> pinned = new LinkedHashMap<>();
+        pinned.put(SCHEMA_KEYWORD, draft.metaSchemaUri());
+        pinned.putAll(schemaJson);
+        schemaJson = pinned;
+      }
+      fSchema = store.loadSchema(schemaJson);
+    }
+    fValidator = new net.jimblackler.jsonschemafriend.Validator(false);
+  }
+
+  private void setupXsd() throws SAXException {
+    SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
+    try {
+      factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "file");
+      factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD,    "file");
+    } catch (SAXException | IllegalArgumentException e) {
+      // not supported by this parser - carry on without it
+    }
+    xsdSchema = factory.newSchema(new File(schemaFile));
+  }
+
+  // -------------------------------------------------------------------------
+  // Validation engines
+  // -------------------------------------------------------------------------
+
+  /** justify validation. */
   private int processJustifyValidation(String file, Path path, PrintingProblemHandler handler) {
-    System.err.println(String.format("Validating '%s' with justify...", file));
-    try (InputStream jsonStream = Files.newInputStream(path);
-         jakarta.json.stream.JsonParser jParser = jService.createParser(jsonStream, jSchema, handler)) {
-      while (jParser.hasNext()) {
-        jParser.next();
-      }
+    status(String.format("Validating '%s' with justify...", file));
+    try (InputStream s = Files.newInputStream(path);
+         jakarta.json.stream.JsonParser p = jService.createParser(s, jSchema, handler)) {
+      while (p.hasNext()) p.next();
     } catch (IOException e) {
-      System.out.println("Error reading JSON file: " + e.getMessage());
+      System.err.println(READ_ERROR + e.getMessage());
       return ERROR_FILEIO;
+    } catch (JsonException e) {
+      report(e.getLocalizedMessage());
+      return ERROR_SYNTAX;
     }
     return SUCCESS;
   }
 
-  /**
-   * Process the JSON file with the everit validation engine.
-   * @param file the file to validate
-   * @param path the path to the file
-   * @return SUCCESS if validation was successful, otherwise an error code.
-   */
+  /** everit validation. */
   private int processEveritValidation(String file, Path path) {
-    System.err.println(String.format("Validating '%s' with everit...", file));
-    try {
-      String inputTxt = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-      int i = 0;
-      while (i < inputTxt.length() && Character.isWhitespace(inputTxt.charAt(i))) {
-        i++;
-      }
-      if (inputTxt.charAt(i) == '[') {
-        eSchema.validate(new org.json.JSONArray(inputTxt));
-      } else {
-        eSchema.validate(new org.json.JSONObject(inputTxt));
-      }
+    status(String.format("Validating '%s' with everit...", file));
+    Object document;
+    try (InputStream s = Files.newInputStream(path)) {
+      document = readJsonDocument(s);
     } catch (IOException e) {
-      System.out.println(e.getLocalizedMessage());
+      System.err.println(READ_ERROR + e.getMessage());
       return ERROR_FILEIO;
+    } catch (JSONException e) {
+      report(e.getLocalizedMessage());
+      return ERROR_SYNTAX;
+    }
+    try {
+      eSchema.validate(document);
     } catch (ValidationException e) {
       allCorrect = false;
-      if (!quietMode) {
-        System.out.println(e.toJSON().toString(2));
-      }
+      report(e.toJSON().toString(2));
     }
     return SUCCESS;
   }
 
-  /**
-   * Process the JSON file with the networknt validation engine.
-   * @param file the file to validate
-   * @param path the path to the file
-   * @return SUCCESS if validation was successful, otherwise an error code.
-   */
-  private int processNetworkntValidation(String file, Path path) {
-    System.err.println(String.format("Validating '%s' with networknt...", file));
-    try (InputStream jsonStream = Files.newInputStream(path)) {
-      com.fasterxml.jackson.databind.ObjectMapper objectMapper = new com.fasterxml.jackson.databind.ObjectMapper();
-      com.fasterxml.jackson.databind.JsonNode jsonNode = objectMapper.readTree(jsonStream);
-      Set<ValidationMessage> validationMessages = nSchema.validate(jsonNode);
-      if (!validationMessages.isEmpty()) {
+  /** networknt validation (JSON or YAML). */
+  private int processNetworkntValidation(String file, Path path, boolean yaml) {
+    status(String.format("Validating '%s' with networknt (%s)...", file, yaml ? "yaml" : "json"));
+    ObjectMapper mapper = yaml ? new ObjectMapper(new YAMLFactory()) : new ObjectMapper();
+    try (InputStream s = Files.newInputStream(path)) {
+      JsonNode jsonNode = mapper.readTree(s);
+      Set<ValidationMessage> msgs = nSchema.validate(jsonNode);
+      if (!msgs.isEmpty()) {
         allCorrect = false;
-        if (!quietMode) {
-          for (ValidationMessage msg : validationMessages) {
-            System.out.println(msg.getMessage());
-          }
-        }
+        Set<String> sorted = new TreeSet<>();
+        for (ValidationMessage m : msgs) sorted.add(m.getMessage());
+        reportAll(sorted);
       }
+    } catch (JsonParseException e) {
+      report(syntaxMessage(e));
+      return ERROR_SYNTAX;
     } catch (IOException e) {
-      System.out.println(e.getLocalizedMessage());
+      System.err.println(READ_ERROR + e.getMessage());
       return ERROR_FILEIO;
     }
     return SUCCESS;
   }
 
-  /**
-   * Process the XML file with the standard JDK validation.
-   * @param file the file to validate
-   * @return SUCCESS if validation was successful, otherwise an error code.
-   */
-  private int processXmlValidation(String file) {
-    int retval = SUCCESS;
-    try {
-      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-      factory.setValidating(true);
-      factory.setNamespaceAware(true);
-      DocumentBuilder builder = factory.newDocumentBuilder();
-      builder.setEntityResolver((publicId, systemId) -> {
-        matchingDtdProvided = false;
-        if (xmlDtd != null && !xmlDtd.isEmpty()) {
-          String fName = new File(xmlDtd).getName();
-          if (systemId != null) {
-            if (systemId.endsWith(fName)) {
-              System.err.println(String.format("Validating '%s' with dtd '%s'...", file, xmlDtd));
-              matchingDtdProvided = true;
-              return new InputSource(new File(xmlDtd).toURI().toString());
-            } else {
-              System.err.println(String.format("NOT Validating (passthrough) '%s' (expected dtd='%s' but provided dtd='%s')...",
-                  file, new File(systemId).getName(), fName));
-              return null;
-            }
-          }
+  /** json-sKema validation. */
+  private int processSkemaValidation(String file, Path path) {
+    status(String.format("Validating '%s' with json-sKema...", file));
+    try (InputStream s = Files.newInputStream(path)) {
+      com.github.erosb.jsonsKema.ValidationFailure failure =
+          kValidator.validate(new com.github.erosb.jsonsKema.JsonParser(s).parse());
+      if (failure != null) {
+        allCorrect = false;
+        Set<String> sorted = new TreeSet<>();
+        for (com.github.erosb.jsonsKema.ValidationFailure f : failure.flatten()) {
+          sorted.add(String.format("[%s] %s", pointerOf(f.getDynamicPath()), f.getMessage()));
         }
-        System.err.println(String.format("NOT Validating (passthrough) '%s' with jdk..", file));
-        return null;
-      });
-
-      builder.setErrorHandler(new ErrorHandler() {
-        @Override
-        public void warning(SAXParseException exception) {
-          allCorrect = false;
-          if (!quietMode) {
-            System.out.println("Warning: " + exception.toString());
-          }
-        }
-
-        @Override
-        public void error(SAXParseException exception) {
-          allCorrect = false;
-          if (!quietMode) {
-            System.out.println("Error: " + exception.toString());
-          }
-        }
-
-        @Override
-        public void fatalError(SAXParseException exception) {
-          allCorrect = false;
-          if (!quietMode) {
-            System.out.println("Fatal error: " + exception.toString());
-          }
-        }
-      });
-
-      File xmlFile = new File(file);
-      builder.parse(xmlFile);
-      retval = SUCCESS;
-
-    } catch (ParserConfigurationException | SAXException | IOException e) {
-      allCorrect = false;
-      if (!quietMode) {
-        System.out.println("Validation error: " + e.toString());
-      }
-      retval = ERROR_VALIDATION;
-    }
-    return retval;
-  }
-
-  /**
-   * Process the JSON file with the justify validation engine in passthrough mode.
-   * This means it will not validate against a schema but will parse the JSON.
-   * @param file the file to process
-   * @return SUCCESS if processing was successful, otherwise an error code.
-   */
-  private int processJustifyPassthrough(String file) {
-    int retval = SUCCESS;
-    System.err.println(String.format("NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
-
-    try (FileInputStream fileInputStream = new FileInputStream(file);
-         jakarta.json.stream.JsonParser parser = Json.createParser(fileInputStream)) {
-      while (parser.hasNext()) {
-        parser.next();
-      }
-    } catch (FileNotFoundException e) {
-      retval = ERROR_FILEIO;
-      System.out.println(e.getLocalizedMessage());
-    } catch (Exception e) {
-      retval = ERROR_SYNTAX;
-      System.out.println(e.getLocalizedMessage());
-    }
-
-    return retval;
-  }
-
-  /**
-   * Process the JSON file with the everit validation engine in passthrough mode.
-   * This means it will not validate against a schema but will parse the JSON.
-   * @param file the file to process
-   * @return SUCCESS if processing was successful, otherwise an error code.
-   */
-  private int processEveritPassthrough(String file) {
-    int retval = SUCCESS;
-    System.err.println(String.format("NOT validating (passthrough) '%s' with everit (org.json)...", file));
-    JSONTokener tokener = null;
-    try {
-      tokener = new JSONTokener(new FileInputStream(file));
-    } catch (FileNotFoundException e) {
-      retval = ERROR_FILEIO;
-      System.out.println(e.getLocalizedMessage());
-    }
-    if (tokener == null) {
-      retval = ERROR_NULL;
-    } else {
-      try {
-        while (tokener.more()) {
-          tokener.next();
-        }
-      } catch (org.json.JSONException e) {
-        retval = ERROR_SYNTAX;
-        System.out.println(e.getLocalizedMessage());
-      }
-    }
-    return retval;
-  }
-
-  /**
-   * Process the JSON file with the networknt validation engine in passthrough mode.
-   * @param file the file to process
-   * @param path the path to the file
-   * @return SUCCESS if processing was successful, otherwise an error code.
-   */
-  private int processNetworkntPassthrough(String file, Path path) {
-    int retval = SUCCESS;
-    System.err.println(String.format("NOT validating (passthrough) '%s' with networknt (jackson)...", file));
-    try (InputStream jsonStream = Files.newInputStream(path);
-         com.fasterxml.jackson.core.JsonParser parser = new com.fasterxml.jackson.core.JsonFactory().createParser(jsonStream)) {
-      while (parser.nextToken() != null) {
-        // Quietly parse the JSON file without validation
+        reportAll(sorted);
       }
     } catch (IOException e) {
-      retval = ERROR_FILEIO;
-      System.out.println(e.getLocalizedMessage());
+      System.err.println(READ_ERROR + e.getMessage());
+      return ERROR_FILEIO;
+    } catch (com.github.erosb.jsonsKema.JsonParseException e) {
+      report(e.getMessage());
+      return ERROR_SYNTAX;
     }
-    return retval;
+    return SUCCESS;
   }
 
   /**
-   * Get a string attribute from the containing jar.
-   * @param key the attribute to obtain
-   * @return the string value of the attribute or '(unknown)'
+   * Strip the document URI from a json-sKema dynamic path so the output is
+   * stable regardless of where the file lives on disk.
    */
+  private static String pointerOf(Object dynamicPath) {
+    String path = String.valueOf(dynamicPath);
+    int hash = path.indexOf('#');
+    return (hash < 0) ? path : path.substring(hash);
+  }
+
+  /** jsonschemafriend validation. */
+  private int processFriendValidation(String file, Path path) {
+    status(String.format("Validating '%s' with jsonschemafriend...", file));
+    Object document;
+    try (InputStream s = Files.newInputStream(path)) {
+      document = new ObjectMapper().readValue(s, Object.class);
+    } catch (JsonParseException e) {
+      report(syntaxMessage(e));
+      return ERROR_SYNTAX;
+    } catch (IOException e) {
+      System.err.println(READ_ERROR + e.getMessage());
+      return ERROR_FILEIO;
+    }
+    Set<String> msgs = new TreeSet<>();
+    fValidator.validate(fSchema, document, URI.create(""),
+        err -> msgs.add(String.format("[%s] %s", err.getUri(), err.getMessage())));
+    if (!msgs.isEmpty()) {
+      allCorrect = false;
+      reportAll(msgs);
+    }
+    return SUCCESS;
+  }
+
+  /** DTD-based XML validation. */
+  private int processDtdValidation(String file) {
+    try {
+      DocumentBuilder builder = newValidatingDocumentBuilder();
+      builder.setEntityResolver((publicId, systemId) -> resolveDtd(file, systemId));
+      builder.setErrorHandler(new ReportingErrorHandler());
+      builder.parse(new File(file));
+    } catch (ParserConfigurationException e) {
+      System.err.println("XML parser configuration error: " + e.getMessage());
+      return ERROR_SCHEMA;
+    } catch (SAXParseException e) {
+      return ERROR_SYNTAX;   // fatal well-formedness error, already reported
+    } catch (SAXException e) {
+      allCorrect = false;
+      report("Validation error: " + e);
+      return ERROR_VALIDATION;
+    } catch (IOException e) {
+      System.err.println("Error reading XML file: " + e.getMessage());
+      return ERROR_FILEIO;
+    }
+    return SUCCESS;
+  }
+
+  /** W3C XSD-based XML validation. */
+  private int processXsdValidation(String file) {
+    status(String.format("Validating '%s' with xsd '%s'...", file, schemaFile));
+    javax.xml.validation.Validator validator = xsdSchema.newValidator();
+    validator.setErrorHandler(new ReportingErrorHandler());
+    try {
+      validator.validate(new StreamSource(new File(file)));
+    } catch (SAXParseException e) {
+      return ERROR_SYNTAX;   // fatal well-formedness error, already reported
+    } catch (SAXException e) {
+      allCorrect = false;
+      report("Validation error: " + e);
+      return ERROR_VALIDATION;
+    } catch (IOException e) {
+      System.err.println("Error reading XML file: " + e.getMessage());
+      return ERROR_FILEIO;
+    }
+    return SUCCESS;
+  }
+
+  private static DocumentBuilder newValidatingDocumentBuilder()
+      throws ParserConfigurationException {
+    DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+    factory.setValidating(true);
+    factory.setNamespaceAware(true);
+    try {
+      factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+      factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "file");
+    } catch (ParserConfigurationException | IllegalArgumentException e) {
+      // not supported - carry on
+    }
+    return factory.newDocumentBuilder();
+  }
+
+  private InputSource resolveDtd(String file, String systemId) {
+    if (xmlDtd != null && !xmlDtd.isEmpty() && systemId != null) {
+      String dtdName = new File(xmlDtd).getName();
+      if (systemId.endsWith(dtdName)) {
+        status(String.format("Validating '%s' with dtd '%s'...", file, xmlDtd));
+        matchingDtdProvided = true;
+        return new InputSource(new File(xmlDtd).toURI().toString());
+      }
+      status(String.format(
+          "NOT Validating (passthrough) '%s' (expected dtd='%s' but provided dtd='%s')...",
+          file, new File(systemId).getName(), dtdName));
+      return null;
+    }
+    status(String.format("NOT Validating (passthrough) '%s' with jdk..", file));
+    return null;
+  }
+
+  private class ReportingErrorHandler implements ErrorHandler {
+    @Override public void warning(SAXParseException e) {
+      allCorrect = false;
+      report("Warning: " + e);
+    }
+    @Override public void error(SAXParseException e) {
+      allCorrect = false;
+      report("Error: " + e.getMessage());
+    }
+    @Override public void fatalError(SAXParseException e) throws SAXParseException {
+      allCorrect = false;
+      report("Fatal error: " + e.getMessage());
+      throw e;
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Passthrough (parse-only) engines
+  // -------------------------------------------------------------------------
+
+  private int processJustifyPassthrough(String file, Path path) {
+    status(String.format(
+        "NOT validating (passthrough) '%s' with justify (jakarta.json)...", file));
+    try (InputStream s = Files.newInputStream(path);
+         jakarta.json.stream.JsonParser p = Json.createParser(s)) {
+      while (p.hasNext()) p.next();
+    } catch (IOException e) {
+      System.err.println(READ_ERROR + e.getMessage()); return ERROR_FILEIO;
+    } catch (JsonException e) {
+      report(e.getLocalizedMessage()); return ERROR_SYNTAX;
+    }
+    return SUCCESS;
+  }
+
+  private int processEveritPassthrough(String file, Path path) {
+    status(String.format(
+        "NOT validating (passthrough) '%s' with everit (org.json)...", file));
+    try (InputStream s = Files.newInputStream(path)) {
+      readJsonDocument(s);
+    } catch (IOException e) {
+      System.err.println(READ_ERROR + e.getMessage()); return ERROR_FILEIO;
+    } catch (JSONException e) {
+      report(e.getLocalizedMessage()); return ERROR_SYNTAX;
+    }
+    return SUCCESS;
+  }
+
+  private int processNetworkntPassthrough(String file, Path path) {
+    status(String.format(
+        "NOT validating (passthrough) '%s' with networknt (jackson)...", file));
+    try (InputStream s = Files.newInputStream(path);
+         com.fasterxml.jackson.core.JsonParser p = new JsonFactory().createParser(s)) {
+      while (p.nextToken() != null) { /* parse quietly */ }
+    } catch (JsonParseException e) {
+      report(syntaxMessage(e)); return ERROR_SYNTAX;
+    } catch (IOException e) {
+      System.err.println(READ_ERROR + e.getMessage()); return ERROR_FILEIO;
+    }
+    return SUCCESS;
+  }
+
+  // -------------------------------------------------------------------------
+  // Utilities
+  // -------------------------------------------------------------------------
+
+  /** Fully parse a JSON document with org.json, rejecting trailing content. */
+  private static Object readJsonDocument(InputStream jsonStream) {
+    JSONTokener tokener = new JSONTokener(jsonStream);
+    Object document = tokener.nextValue();
+    if (tokener.nextClean() != 0) {
+      throw tokener.syntaxError(
+          "Unexpected content after the end of the JSON document");
+    }
+    return document;
+  }
+
+  /** Render a jackson parse exception as a stable, compact one-liner. */
+  private static String syntaxMessage(JsonParseException e) {
+    JsonLocation loc = e.getLocation();
+    if (loc == null) return e.getOriginalMessage();
+    return String.format("%s at (line no=%d, column no=%d)",
+        e.getOriginalMessage(), loc.getLineNr(), loc.getColumnNr());
+  }
+
   private static String getJarAttr(String key) {
-    String attr = "(unknown)";
-    try (InputStream manifestStream = JJval.class.getClassLoader().getResourceAsStream("META-INF/MANIFEST.MF")) {
-      if (manifestStream != null) {
-        Manifest manifest = new Manifest(manifestStream);
-        Attributes attributes = manifest.getMainAttributes();
+    String attr = UNKNOWN;
+    try (InputStream s = JJval.class.getClassLoader()
+        .getResourceAsStream("META-INF/MANIFEST.MF")) {
+      if (s != null) {
+        Attributes attributes = new Manifest(s).getMainAttributes();
         String value = attributes.getValue(key);
-        if (value != null) {
-          attr = value;
-        }
+        if (value != null) attr = value;
       }
     } catch (IOException e) {
       System.err.println("Error reading manifest attribute: " + e.getMessage());
@@ -505,48 +803,72 @@ public class JJval {
     return attr;
   }
 
-  /**
-   * Main driver.
-   * @param args arguments specifiying schema-based validation or not and which engine to use.
-   */
-  public static void main(String[] args) {
-    JJval jjval = new JJval();
-    List<String> filesToValidate = new ArrayList<>();
+  /** Printing problem handler for the justify engine. */
+  private class PrintingProblemHandler implements ProblemHandler {
+    @Override
+    public void handleProblems(List<org.leadpony.justify.api.Problem> problems) {
+      for (org.leadpony.justify.api.Problem p : problems) {
+        allCorrect = false;
+        report(p.toString());
+      }
+    }
+  }
 
-    // parse command line
-    int state = 0;
-    for (String arg: args) {
-      switch(arg) {
-        case "-vj": jjval.setValidateJustify(true); break;
-        case "-ve": jjval.setValidateEverit(true); break;
-        case "-vn": jjval.setValidateNetworknt(true); break;
-        case "-vx": jjval.setValidateXml(true); break;
-        case "-pj": jjval.setPassthroughJustify(true); break;
-        case "-pe": jjval.setPassthroughEverit(true); break;
-        case "-pn": jjval.setPassthroughNetworknt(true); break;
-        case "-nv": jjval.setShowVersion(false); break;
-        case "-q":  jjval.setQuietMode(true); break;
-        case "-s":  state = 1; break;
-        case "-d":  state = 2; break;
-        default:
-          switch (state) {
-            case 1:
-              jjval.setJsonSchemaFile(arg);
-              state = 0;
-              break;
-            case 2:
-              jjval.setXmlDtdFile(arg);
-              state = 0;
-              break;
-            default:
-              filesToValidate.add(arg);
-              break;
+  // -------------------------------------------------------------------------
+  // Command-line parsing
+  // -------------------------------------------------------------------------
+
+  static int parseArguments(String[] args, JJval jjval) {
+    List<String> filesToValidate = new ArrayList<>();
+    int i = 0;
+    while (i < args.length) {
+      String arg = args[i++];
+      Mode argMode = Mode.fromFlag(arg);
+      if (argMode != null) {
+        if (jjval.getMode() != null && jjval.getMode() != argMode) {
+          return usage(String.format("Only one mode may be given (found %s and %s)",
+              jjval.getMode().flag(), argMode.flag()));
+        }
+        jjval.setMode(argMode);
+      } else if ("-s".equals(arg) || "-d".equals(arg) || "--draft".equals(arg)) {
+        if (i >= args.length) {
+          return usage(String.format("Missing argument for %s", arg));
+        }
+        String value = args[i++];
+        if      ("-s".equals(arg))       { jjval.setSchemaFile(value); }
+        else if ("-d".equals(arg))       { jjval.setXmlDtdFile(value); }
+        else {
+          Draft argDraft = Draft.fromLabel(value);
+          if (argDraft == null) {
+            return usage(String.format(
+                "Unknown --draft '%s' (expected one of %s)", value, Draft.labels()));
           }
-          break;
+          jjval.setDraft(argDraft);
+        }
+      } else if ("-nv".equals(arg)) {
+        jjval.setShowVersion(false);
+      } else if ("-q".equals(arg)) {
+        jjval.setQuietMode(true);
+      } else if ("-h".equals(arg) || "-help".equals(arg) || "--help".equals(arg)) {
+        jjval.helpRequested = true;
+        return usage(null);
+      } else if (arg.startsWith("-") && arg.length() > 1) {
+        return usage(String.format("Unknown option '%s'", arg));
+      } else {
+        filesToValidate.add(arg);
       }
     }
     jjval.setFiles(filesToValidate);
-    System.exit(jjval.validate(args));
+    return SUCCESS;
+  }
+
+  public static void main(String[] args) {
+    JJval jjval = new JJval();
+    int retval = parseArguments(args, jjval);
+    if (retval == SUCCESS && !jjval.helpRequested) {
+      retval = jjval.validate();
+    }
+    System.exit(retval);
   }
 }
 
