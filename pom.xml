@@ -13,6 +13,12 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 
+  <scm>
+    <connection>scm:git:https://github.com/jbrazile/jjval</connection>
+    <developerConnection>scm:git:https://github.com/jbrazile/jjval</developerConnection>
+    <url>https://github.com/jbrazile/jjval</url>
+  </scm>
+
   <dependencies>
     <dependency>
       <groupId>org.leadpony.justify</groupId>
