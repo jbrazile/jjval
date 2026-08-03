@@ -1,11 +1,15 @@
 # jjval
 Java JSON/YAML/XML validator
 
-A standalone jar that drives several JSON Schema validators ? **justify**,
-**everit**, **networknt**, **json-sKema** and **jsonschemafriend** ? plus
-W3C XSD and DTD-based XML validation.  Having multiple engines in one command
-makes it easy to cross-check how different implementations judge the same
-document and schema.
+A standalone jar that drives several JSON Schema validators -
+[justify](https://github.com/leadpony/justify),
+[everit](https://github.com/everit-org/json-schema),
+[networknt](https://github.com/networknt/json-schema-validator),
+[json-sKema](https://github.com/erosb/json-sKema), and
+[jsonschemafriend](https://github.com/jimblackler/jsonschemafriend) -
+plus W3C XSD and DTD-based XML validation.  Having multiple engines
+in one command makes it easy to cross-check how different implementations
+judge the same document and schema.
 
 # usage
 
