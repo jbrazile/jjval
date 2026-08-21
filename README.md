@@ -1,5 +1,5 @@
 # jjval
-Java JSON/YAML/XML validator
+Jason's JSON/YAML/XML validator
 
 A standalone jar that drives several JSON Schema validators -
 [justify](https://github.com/leadpony/justify),
